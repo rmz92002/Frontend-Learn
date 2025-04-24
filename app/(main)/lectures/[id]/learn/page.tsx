@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input"
 import Spline from '@splinetool/react-spline/next';
 import {getLecture} from "@/lib/api"
 import { useParams } from 'next/navigation'
+import { Router } from "next/router"
 
 
 
@@ -175,6 +176,7 @@ export default function LearningView({ params }: any) {
                     if (event.status === "html_complete") {
 
                       setLecturePages((prev) => [...prev, event.html]);
+                      console.log(event.html)
                       setAvailableSections((prev) => [...prev, event.index]); // Use event.index instead of prev.length
                     }
                     if (event.progress) {
@@ -251,7 +253,7 @@ export default function LearningView({ params }: any) {
     }
   }
 
-
+ 
   const isLastSection = () => {
     return currentSection === totalSections - 1
   }
@@ -385,9 +387,15 @@ export default function LearningView({ params }: any) {
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
            */}
-          <Button
+           {isLastSection()? (<Link
+            href={`/courses/1`}
+            className="bg-black text-white hover:bg-gray-800 fixed bottom-4 right-4 flex items-center rounded-full px-4 py-2"
+          >
+          Finish 
+          <Sparkles className="w-4 h-4 ml-2" />
+        </Link>) : (<Button
             onClick={goToNextSection}
-            disabled={isLastSection() || (isGeneratingContent && !availableSections.includes(currentSection + 1))}
+            disabled={ (isGeneratingContent && !availableSections.includes(currentSection + 1))}
             className="rounded-full bg-black text-white hover:bg-gray-800 fixed bottom-4 right-4"
           >
             {isGeneratingContent && !availableSections.includes(currentSection + 1) ? (
@@ -401,7 +409,8 @@ export default function LearningView({ params }: any) {
                 <ChevronLeft className="w-4 h-4 ml-2 rotate-180" />
               </>
             )}
-          </Button>
+          </Button>)}
+          
         {/* </div>
       </div> */}
 

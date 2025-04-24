@@ -17,20 +17,17 @@ export async function getCurrentUser(signal?: AbortSignal) {
   }
 
   // get lecutre
+
   export async function getLecture(lectureId: string, signal?: AbortSignal) {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lectures/${lectureId}/stream`, {
+     return fetch(`${process.env.NEXT_PUBLIC_API_URL}/lectures/${lectureId}/stream`, {
       method: "GET",
+      mode: "cors", 
       headers: {
         "Content-Type": "application/json",
+
       },
       signal
     })
-  
-    if (!response.ok) {
-      throw new Error('Failed to fetch lecture')
-    }
-    
-    return response.json()
   }
 
   // get settings 
