@@ -167,7 +167,7 @@ export default function HomePage() {
                   <SelectValue placeholder="No course selected" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No course selected</SelectItem>
+                  
                   {courses.map((course) => (
                     <SelectItem key={course.id} value={course.id}>
                       {course.name}

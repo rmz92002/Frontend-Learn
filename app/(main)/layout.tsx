@@ -57,12 +57,18 @@ export default function MainLayout({
     window.location.href = "/login"
   }
 
-  const { data: userData } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: ({ signal }) => getCurrentUser(signal),
-    staleTime: 60 * 60 * 1000, // Cache for 1 hour
-  })
-
+  // const { data: userData } = useQuery({
+  //   queryKey: ['currentUser'],
+  //   queryFn: ({ signal }) => getCurrentUser(signal),
+  //   staleTime: 60 * 60 * 1000, // Cache for 1 hour
+  // })
+  const userData = {
+    email: "rmz92002@gmail.com",
+    name: "Rami Zahr",
+    profile: {
+      avatar_url: "https://avatars.githubusercontent.com/u/92002?v=4",
+    },
+  }
   const [notifications, setNotifications] = useState([
     {
       id: 1,
