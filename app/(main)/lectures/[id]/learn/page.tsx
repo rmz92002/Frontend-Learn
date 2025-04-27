@@ -76,12 +76,7 @@ export default function LearningView({ params }: any) {
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   // Format the course slug for display
-  const courseTitle = slug
-    ? slug
-        .split("-")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ")
-    : "Untitled Course"
+  const [courseTitle, setCourseTitle] = useState("")
 
   // Static module content as fallback
   const moduleContent = {
@@ -143,7 +138,7 @@ export default function LearningView({ params }: any) {
   // }
 
   // Total sections is determined by generated lecture pages (if available) or fallback static sections
-  const totalSections = lecturePages.length > 0 ? lecturePages.length : moduleContent.sections.length
+  const[totalSections, setTotalSections] = useState(lecturePages.length > 0 ? lecturePages.length : moduleContent.sections.length)
 
   // POST to localhost:8000 to generate lecture content if newly created
   useEffect(() => {
@@ -163,19 +158,19 @@ export default function LearningView({ params }: any) {
               buffer += decoder.decode(value, { stream: true })
               const parts = buffer.split("\n\n")
               buffer = parts.pop() || ""
+             
               parts.forEach((part) => {
                 if (part.trim()) {
                   try {
                     const event = JSON.parse(part)
                     // print event
-                    console.log(event)
                     if (event.status === "outline_complete") {
+                      setTotalSections(event.outline.length)
+                      setCourseTitle(event.title)
                       setLectureStatus("Generating Lecture Slides...")
                     }
                     if (event.status === "html_complete") {
-
                       setLecturePages((prev) => [...prev, event.html]);
-                      
                       setAvailableSections((prev) => [...prev, event.index]); // Use event.index instead of prev.length
                     }
                     if (event.progress) {
@@ -327,9 +322,7 @@ export default function LearningView({ params }: any) {
         <div className="w-full h-2 bg-gray-100 relative">
           <div
             className={`h-full ${
-  
-                "bg-pastel-green"
-               
+                "bg-green-500"
             }`}
             style={{ width: `${progress}%` }}
           ></div>
@@ -347,7 +340,7 @@ export default function LearningView({ params }: any) {
       </div>
 
       {/* Main content */}
-      {/* <div className=" px-4 md:px-8 mx-auto h-full"> */}
+     
         
         {/* Content display */}
         <div className="prose max-w-none h-full br-4">
@@ -358,25 +351,16 @@ export default function LearningView({ params }: any) {
             //loading animation placeholder 
             <div className="flex items-center justify-center h-full flex-col space-y-4">
     <Loader2 className={`w-12 h-12 animate-spin ${
-      "text-pastel-green" 
-      
+      "text-green-500 " 
     }`} />
     <div className="text-center space-y-2">
-      {/* <p className="text-gray-600 font-medium">{generationStatus}</p>
-      <p className="text-sm text-gray-400">
-        {generationProgress.toFixed(0)}% complete
-      </p> */}
       <p className="text-gray-600 font-medium">{lectureStatus}</p>
     </div>
   </div>
           )}
           
         </div>
-      {/* </div> */}
-
-      {/* Navigation Footer */}
-      {/* <div className="fixed bottom-0 left-0 right-0 border-t py-3 px-4"> */}
-        {/* <div className="container mx-auto flex justify-between items-center"> */}
+      
           <Button variant="outline" onClick={goToPreviousSection} disabled={currentSection === 0} className="rounded-full sticky bottom-4 ml-4">
             <ChevronLeft className="w-4 h-4 mr-2" />
             Previous
@@ -386,6 +370,7 @@ export default function LearningView({ params }: any) {
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
            */}
+           
           <Button
             onClick={goToNextSection}
             disabled={isLastSection() || (isGeneratingContent && !availableSections.includes(currentSection + 1))}

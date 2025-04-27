@@ -23,8 +23,8 @@ export async function getCurrentUser(signal?: AbortSignal) {
       method: "GET",
       mode: "cors", 
       headers: {
-        "Content-Type": "application/json",
-
+        //event stream
+        "Content-Type": "text/event-stream",
       },
       signal
     })
