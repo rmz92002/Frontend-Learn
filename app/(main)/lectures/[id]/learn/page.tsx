@@ -142,7 +142,6 @@ export default function LearningView({ params }: any) {
 
   // POST to localhost:8000 to generate lecture content if newly created
   useEffect(() => {
-    
     if (isNewlyCreated) {
       const controller = new AbortController()
       getLecture(id, controller.signal).then((response) => {
