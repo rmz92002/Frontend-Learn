@@ -80,3 +80,42 @@ export async function updateSettingsUser(
   
     return response.json()
   }
+
+
+
+export interface LectureInProgress {
+  title: string;
+  description?: string;
+  progress: number;
+  date: string;      // ISO 8601 timestamp
+  category: string;
+}
+
+export async function getLecturesInProgress(
+  profileId: string,
+  page = 1,
+  pageSize = 10,
+  signal?: AbortSignal
+): Promise<LectureInProgress[]> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/lectures`
+  );
+  url.searchParams.set("profile_id", profileId);
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("page_size", String(pageSize));
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch lectures: ${response.status}`);
+  }
+
+  return response.json();
+}
