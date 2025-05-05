@@ -1,460 +1,235 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useRef } from "react"
-import { useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import {
-  ChevronLeft,
-  Play,
-  Pause,
-  MessageSquare,
-  Send,
-  X,
-  Brain,
-  Code,
-  BookOpen,
-  Loader2,
-  Sparkles,
-} from "lucide-react"
+import React, { useState, useEffect, useRef } from "react"
+import { useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
+import {
+  ChevronLeft, Play, Pause, MessageSquare, Send, X, Brain,
+  Loader2
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
-import Spline from '@splinetool/react-spline/next';
-import {getLecture} from "@/lib/api"
-import { useParams } from 'next/navigation'
+import { streamLecture } from "@/lib/api"    // helper imported here
 
-
-
-interface LearningViewProps {
-  params: {
-    slug: string
-    moduleId: string
+/* ------------------------------------------------------------------ */
+/*  helper (keep in lib/api.ts or here if you prefer)                 */
+/* ------------------------------------------------------------------ */
+export async function streamLecture(
+  lectureId: string,
+  opts: { isNew: boolean; page?: number },
+  signal?: AbortSignal
+) {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/lectures/${lectureId}/stream`
+  )
+  if (!opts.isNew && opts.page !== undefined) {
+    url.searchParams.set("page", String(opts.page))
   }
+  return fetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "text/event-stream" },
+    mode: "cors",
+    signal,
+  })
 }
 
-// Iframe component to isolate generated HTML content from the parent UI styles
+/* ------------------------------------------------------------------ */
+/*  Isolated iframe component                                         */
+/* ------------------------------------------------------------------ */
 function Iframe({ html }: { html: string }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const ref = useRef<HTMLIFrameElement>(null)
   useEffect(() => {
-    if (iframeRef.current) {
-      // Use srcdoc to inject HTML content
-      iframeRef.current.srcdoc = html
-    }
+    if (ref.current) ref.current.srcdoc = html
   }, [html])
-  return <iframe ref={iframeRef} style={{width:'100%', height:'100%'}} />
+  return <iframe ref={ref} style={{ width: "100%", height: "100%" }} />
 }
 
-export default function LearningView({ params }: any) {
-  const searchParams = useSearchParams()
- 
+/* ------------------------------------------------------------------ */
+/*  Main component                                                    */
+/* ------------------------------------------------------------------ */
+export default function LearningView() {
+  /* ------------- params & query ---------------- */
   const { slug, id } = useParams<{ slug: string; id: string }>()
-
-  // Parse URL parameters
-  const moduleTitle = searchParams.get("title") 
+  const searchParams = useSearchParams()
   const isNewlyCreated = searchParams.get("new") === "true"
 
-  // Content and playback states
-  const [isPlaying, setIsPlaying] = useState(false)
+  /* ------------- state ------------------------- */
   const [currentSection, setCurrentSection] = useState(0)
-  const [progress, setProgress] = useState(0)
-  const [lectureStatus, setLectureStatus] = useState("Generating Lecture outline...")
-
-  // Generation states
+  const [lecturePages, setLecturePages] = useState<string[]>([])
+  const [availableSections, setAvailableSections] = useState<number[]>([])
+  const [totalSections, setTotalSections] = useState(0)
   const [isGeneratingContent, setIsGeneratingContent] = useState(isNewlyCreated)
   const [generationProgress, setGenerationProgress] = useState(isNewlyCreated ? 20 : 100)
-  const [availableSections, setAvailableSections] = useState<number[]>(isNewlyCreated ? [] : [0, 1, 2, 3, 4])
-  // This state holds the generated lecture HTML per section
-  const [lecturePages, setLecturePages] = useState<string[]>([])
-
-  // Chat states (unchanged)
-  const [isChatOpen, setIsChatOpen] = useState(false)
-  const [message, setMessage] = useState("")
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const chatEndRef = useRef<HTMLDivElement>(null)
-
-  // Format the course slug for display
+  const [lectureStatus, setLectureStatus] = useState("Generating outline…")
   const [courseTitle, setCourseTitle] = useState("")
 
-  // Static module content as fallback
-  const moduleContent = {
-    title: `Module ${id}: Core Concepts`,
-    description: "Learn the fundamental concepts and principles of web development.",
-    sections: [
-      {
-        title: "Introduction",
-        content: `Welcome to Module ${id} of ${courseTitle}. In this module, we'll explore the core concepts and principles that form the foundation of this subject.`,
-        beginner: "This is a friendly introduction to get you started with the basics.",
-        intermediate: "This module builds on your existing knowledge to deepen your understanding.",
-        advanced: "This advanced module assumes you're already familiar with the fundamentals.",
-      },
-      {
-        title: "Learning Objectives",
-        content:
-          "By the end of this module, you will be able to understand the fundamental principles, apply theoretical knowledge to practical scenarios, analyze complex problems, and develop effective solutions.",
-      },
-      {
-        title: "Key Concepts",
-        content: `The key concepts covered in this module include theoretical frameworks, practical applications, and case studies that illustrate the importance of ${courseTitle} in various contexts.`,
-      },
-      {
-        title: "Practical Applications",
-        content:
-          "We'll examine several real-world examples where these concepts are applied, helping you understand their practical significance.",
-      },
-      {
-        title: "Summary",
-        content:
-          "This module provides a comprehensive overview of the core concepts, setting the foundation for more advanced topics in subsequent modules.",
-      },
-    ],
-    exercises: [
-      {
-        title: "Interactive Exercise 1",
-        description: "Apply what you've learned by completing this interactive exercise.",
-        difficulty: "beginner",
-      },
-      {
-        title: "Interactive Exercise 2",
-        description: "Test your understanding with this intermediate challenge.",
-        difficulty: "intermediate",
-      },
-      {
-        title: "Interactive Exercise 3",
-        description: "Tackle this advanced problem to demonstrate mastery.",
-        difficulty: "advanced",
-      },
-    ],
-  }
-
-  // Helper: Get content based on proficiency level
-  // const getProficiencyContent = (section: any) => {
-  //   if (section[proficiency]) {
-  //     return section[proficiency]
-  //   }
-  //   return section.content
-  // }
-
-  // Total sections is determined by generated lecture pages (if available) or fallback static sections
-  const[totalSections, setTotalSections] = useState(lecturePages.length > 0 ? lecturePages.length : moduleContent.sections.length)
-
-  // POST to localhost:8000 to generate lecture content if newly created
+  /* ------------------------------------------------------------------ */
+  /* A.  live‑generation stream  (only once, only if new)               */
+  /* ------------------------------------------------------------------ */
   useEffect(() => {
-    if (isNewlyCreated) {
-      const controller = new AbortController()
-      getLecture(id, controller.signal).then((response) => {
-          if (!response.ok) {
-            throw new Error("Network response was not ok")
+    if (!isNewlyCreated) return;
+    const controller = new AbortController();
+  
+    streamLecture(id, { isNew: true }, controller.signal)
+      .then(res =>
+        readSSE(res, evt => {
+          if (evt.status === "outline_complete") {
+            setTotalSections(evt.outline.length);
+            setCourseTitle(evt.title);
+            setLectureStatus("Generating slides…");
           }
-          const reader = response.body?.getReader()
-          const decoder = new TextDecoder()
-          let buffer = ""
-          function read() {
-            return reader?.read().then(({ done, value }) => {
-              if (done) return
-              buffer += decoder.decode(value, { stream: true })
-              const parts = buffer.split("\n\n")
-              buffer = parts.pop() || ""
-             
-              parts.forEach((part) => {
-                if (part.trim()) {
-                  try {
-                    const event = JSON.parse(part)
-                    // print event
-                    if (event.status === "outline_complete") {
-                      setTotalSections(event.outline.length)
-                      setCourseTitle(event.title)
-                      setLectureStatus("Generating Lecture Slides...")
-                    }
-                    if (event.status === "html_complete") {
-                      setLecturePages((prev) => [...prev, event.html]);
-                      setAvailableSections((prev) => [...prev, event.index]); // Use event.index instead of prev.length
-                    }
-                    if (event.progress) {
-                      setGenerationProgress(event.progress)
-                    }
-                    if (event.status === "complete") {
-                      setIsGeneratingContent(false)
-                    }
-                  } catch (err) {
-                    console.error("Error parsing stream chunk", err)
-                  }
-                }
-              })
-              return read()
-            })
+          if (evt.status === "html_complete") {
+            setLecturePages(p => {
+              const copy = [...p];
+              copy[evt.index] = evt.html;
+              return copy;
+            });
+            setAvailableSections(p => [...p, evt.index]);
           }
-          return read()
+          if (evt.progress)      setGenerationProgress(evt.progress);
+          if (evt.status === "complete") setIsGeneratingContent(false);
         })
-        .catch((error) => {
-          console.error("Error generating lecture:", error)
-        })
+      )
+      .catch(console.error);
+  
+    return () => controller.abort();
+  }, [id, isNewlyCreated]);
 
-    }
-  }, [isNewlyCreated, moduleTitle,])
+  /**
+ * Stream an SSE response and call `onMessage(json)` for every complete event.
+ */
+async function readSSE(
+  res: Response,
+  onMessage: (data: any) => void,
+  signal?: AbortSignal
+) {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";          // accumulated text
 
-  // Update progress when current section changes
-  useEffect(() => {
-    const newProgress = ((currentSection + 1) / totalSections) * 100
-    setProgress(newProgress)
-  }, [currentSection, totalSections])
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
 
-  // Text-to-speech function
-  const speakText = (text: string) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      utterance.pitch = 1
-      window.speechSynthesis.speak(utterance)
-    }
-  }
+    // process every *complete* event (ends with \n\n)
+    let nl;
+    while ((nl = buffer.indexOf("\n\n")) !== -1) {
+      const rawEvent = buffer.slice(0, nl).trim(); // full event block
+      buffer = buffer.slice(nl + 2);               // remainder
 
-  const togglePlayPause = () => {
+      // collect all ‘data:’ lines → single JSON string
+      const jsonString = rawEvent
+        .split("\n")               // split lines
+        .filter(l => l.startsWith("data:"))
+        .map(l => l.slice(5))      // drop leading "data:"
+        .join("");                 // spec: concatenate
 
-    if (isPlaying) {
-      window.speechSynthesis.cancel()
-    } else {
-      const sectionText =
-        moduleContent.sections[currentSection].title +
-        ". " +
-        (lecturePages.length > 0
-          ? lecturePages[currentSection].replace(/<[^>]+>/g, "")
-          : moduleContent.sections[currentSection].content)
-      speakText(sectionText)
-    }
-    setIsPlaying(!isPlaying)
-  }
-
-  // Navigation functions
-  const goToNextSection = () => {
-    if (currentSection < totalSections - 1 && availableSections.includes(currentSection + 1)) {
-      setCurrentSection(currentSection + 1)
-      window.speechSynthesis.cancel()
-      setIsPlaying(false)
-      window.scrollTo(0, 0)
-    }
-  }
-
-  const goToPreviousSection = () => {
-    if (currentSection > 0) {
-      setCurrentSection(currentSection - 1)
-      window.speechSynthesis.cancel()
-      setIsPlaying(false)
-      window.scrollTo(0, 0)
-    }
-  }
-
-
-  const isLastSection = () => {
-    return currentSection === totalSections - 1
-  }
-
-  // Chat message handler (placeholder implementation)
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!message.trim()) return
-
-    const userMessage = { role: "user" as const, content: message }
-    setChatMessages([...chatMessages, userMessage])
-    setMessage("")
-    setIsLoading(true)
-
-    setTimeout(() => {
-      const currentContent = moduleContent.sections[currentSection]
-      let aiResponse = ""
-      if (message.toLowerCase().includes("what") && message.toLowerCase().includes("this module")) {
-        aiResponse = `This module covers ${currentContent.title}. ${currentContent.content}`
-      } else if (message.toLowerCase().includes("explain")) {
-        aiResponse = `I'd be happy to explain more about ${currentContent.title}`
-      } else if (message.toLowerCase().includes("example")) {
-        aiResponse = `Here's an example related to ${currentContent.title}: In web development, you would apply these concepts when building responsive interfaces that adapt to different screen sizes.`
-      } else {
-        aiResponse = `That's a great question about ${currentContent.title}. The key thing to understand is that ${courseTitle} builds on fundamental principles that you'll master throughout this course.`
+      if (!jsonString) continue;   // ignore empty events
+      try {
+        onMessage(JSON.parse(jsonString));
+      } catch (e) {
+        console.error("Bad JSON in SSE:", e, jsonString);
       }
-      setChatMessages((prev) => [...prev, { role: "assistant", content: aiResponse }])
-      setIsLoading(false)
-    }, 1000)
+    }
   }
+}
 
+
+  /* ------------------------------------------------------------------ */
+  /* B.  lazy page fetch  (fires whenever currentSection changes)       */
+  /* ------------------------------------------------------------------ */
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [chatMessages])
+    if (isNewlyCreated) return;
+    if (lecturePages[currentSection]) return;
+  
+    const controller = new AbortController();
+    streamLecture(id, { isNew: false, page: currentSection }, controller.signal)
+      .then(res =>
+        readSSE(res, evt => {
+          if (evt.status === "html_complete") {
+            if (evt.index   == 0) {
+              setTotalSections(evt.length)
+            }
+            setLecturePages(p => {
+              const copy = [...p];
+              copy[evt.index] = evt.html;
+              return copy;
+            });
+            setAvailableSections(p => [...p, evt.index]);
+          }
+        })
+      )
+      .catch(console.error);
+  
+    return () => controller.abort();
+  }, [id, currentSection, isNewlyCreated, lecturePages]);
 
+  /* ------------------------------------------------------------------ */
+  /* Navigation helpers (unchanged)                                     */
+  /* ------------------------------------------------------------------ */
+  const goNext = () =>
+    setCurrentSection(currentSection + 1)
+  const goPrev = () =>
+    setCurrentSection(currentSection - 1)
+
+  /* ------------------------------------------------------------------ */
+  /*   UI (simplified to core parts)                                    */
+  /* ------------------------------------------------------------------ */
   return (
-    <div className={`h-[100vh] bg-white `}>
-      {/* Header */}
-      <div className="sticky top-0 left-0 right-0 z-10 bg-white/90 backdrop-blur-sm border-b">
-        <div className="container mx-auto px-4 py-5 flex items-center justify-between">
-          <Link href={`/courses/${slug}`} className="flex items-center text-gray-600 hover:text-gray-900">
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Back to {courseTitle}
-          </Link>
-          <div className="flex items-center space-x-2 relative mr-28 "> 
-            <Badge
-              className={`${
-               "bg-pastel-green"
-              } text-black`}
-            >
-              <Brain className="w-3 h-3 mr-1" />
-              
-            </Badge>
-        
-              <Button variant="ghost" size="sm" className="rounded-full" onClick={togglePlayPause}>
-                {isPlaying ? (
-                  <>
-                    <Pause className="h-4 w-4 mr-1" />
-                    Pause Audio
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 mr-1" />
-                    Play Audio
-                  </>
-                )}
-              </Button>
-         
-          </div>
-        </div>
-        {/* Progress bar */}
-        <div className="w-full h-2 bg-gray-100 relative">
+    <div className="h-[100vh] flex flex-col">
+      {/* header */}
+      <header className="border-b p-5 py-7 flex items-center justify-between">
+        <Link href={`/courses/${slug}`} className="flex items-center text-sm">
+          <ChevronLeft className="h-5 w-5 mr-1" />
+          Back to {courseTitle}
+        </Link>
+        <Badge className="bg-green-300 text-black flex items-center">
+          <Brain className="h-4 w-4 mr-1" /> AI
+        </Badge>
+      </header>
+
+      {/* progress bar */}
+      <div className="h-2 bg-gray-100 relative">
+        <div
+          className="h-full bg-green-500"
+          style={{ width: `${((currentSection + 1) / Math.max(totalSections, 1)) * 100}%` }}
+        />
+        {isGeneratingContent && (
           <div
-            className={`h-full ${
-                "bg-green-500"
-            }`}
-            style={{ width: `${progress}%` }}
-          ></div>
-          {isGeneratingContent && (
-            <div
-              className="absolute top-0 h-full bg-gray-300/50"
-              style={{
-                left: `${progress}%`,
-                width: `${generationProgress - progress}%`,
-                transition: "width 0.5s ease-out",
-              }}
-            ></div>
-          )}
-        </div>
+            className="absolute top-0 h-full bg-gray-300/50"
+            style={{ width: `${generationProgress}%` }}
+          />
+        )}
       </div>
 
-      {/* Main content */}
-     
-        
-        {/* Content display */}
-        <div className="prose max-w-none h-full br-4">
-          {lecturePages.length > 0 ? (
-            // Render generated lecture HTML inside an iframe to avoid UI conflicts
-            <Iframe html={lecturePages[currentSection]}  />
-          ) : (
-            //loading animation placeholder 
-            <div className="flex items-center justify-center h-full flex-col space-y-4">
-    <Loader2 className={`w-12 h-12 animate-spin ${
-      "text-green-500 " 
-    }`} />
-    <div className="text-center space-y-2">
-      <p className="text-gray-600 font-medium">{lectureStatus}</p>
-    </div>
-  </div>
-          )}
-          
-        </div>
-      
-          <Button variant="outline" onClick={goToPreviousSection} disabled={currentSection === 0} className="rounded-full sticky bottom-4 ml-4">
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Previous
-          </Button>
-          
-            {/* <Button variant="outline" className="rounded-full" onClick={togglePlayPause}>
-              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            </Button>
-           */}
-           
-          <Button
-            onClick={goToNextSection}
-            disabled={isLastSection() || (isGeneratingContent && !availableSections.includes(currentSection + 1))}
-            className="rounded-full bg-black text-white hover:bg-gray-800 fixed bottom-4 right-4"
-          >
-            {isGeneratingContent && !availableSections.includes(currentSection + 1) ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                Next
-                <ChevronLeft className="w-4 h-4 ml-2 rotate-180" />
-              </>
-            )}
-          </Button>
-        {/* </div>
-      </div> */}
+      {/* slide area */}
+      <main className="flex-1 overflow-auto">
+        {lecturePages[currentSection] ? (
+          <Iframe html={lecturePages[currentSection]} />
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-green-500" />
+            <p className="mt-4 text-sm text-gray-600">{lectureStatus}</p>
+          </div>
+        )}
+      </main>
 
-      {/* Chat Button & Panel */}
-      {/* <Spline
-        scene="https://prod.spline.design/Bsda9mAsBegR0A69/scene.splinecode" 
-      /> */}
-      <div className="fixed bottom-20 right-4 z-20">
-        <Button
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          className={`rounded-full w-12 h-12 p-0 shadow-md ${isChatOpen ? "hidden" : "bg-black text-white hover:bg-gray-800"}`}
-        >
-          {/* <MessageSquare className="h-5 w-5" /> */}
-          
-          
+      {/* nav buttons */}
+      <footer className="p-4 flex justify-between bg-transparent backdrop-blur-sm border-t">
+        <Button onClick={goPrev} disabled={currentSection === 0} variant="outline">
+          <ChevronLeft className="h-4 w-4 mr-2" /> Previous
         </Button>
-      </div>
-      {isChatOpen && (
-        <div className="fixed bottom-20 right-4 w-80 md:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-10 flex flex-col max-h-[60vh] overflow-hidden">
-          <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
-            <div className="flex items-center">
-              <Avatar className="h-8 w-8 mr-2">
-                <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                <AvatarFallback>AI</AvatarFallback>
-              </Avatar>
-              <div>
-                <h3 className="text-sm font-medium">AI Tutor</h3>
-                <p className="text-xs text-gray-500">Ask questions about this module</p>
-              </div>
-            </div>
-            <Button onClick={() => setIsChatOpen(false)} variant="ghost" size="icon" className="rounded-full h-8 w-8 p-0">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ maxHeight: "300px" }}>
-            {chatMessages.length === 0 ? (
-              <div className="text-center text-gray-400 text-sm py-8">Ask a question about the module</div>
-            ) : (
-              chatMessages.map((msg, index) => (
-                <div key={index} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-lg p-2 text-sm ${msg.role === "user" ? "bg-black text-white" : "bg-gray-100 text-gray-800"}`}>
-                    {msg.content}
-                  </div>
-                </div>
-              ))
-            )}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-800 rounded-lg p-2 text-sm">
-                  <span className="inline-block animate-pulse">...</span>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-          <form onSubmit={handleSendMessage} className="p-2 border-t flex">
-            <Input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask a question..."
-              className="rounded-full text-sm"
-            />
-            <Button type="submit" size="icon" className="ml-1 rounded-full h-9 w-9 p-0 flex-shrink-0">
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
-      )}
+        <Button
+          onClick={goNext}
+          disabled={currentSection >= totalSections}
+          className="bg-black text-white"
+        >
+          Next <ChevronLeft className="h-4 w-4 ml-2 rotate-180" />
+        </Button>
+      </footer>
     </div>
   )
 }

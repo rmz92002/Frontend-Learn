@@ -31,6 +31,8 @@ import { motion } from "framer-motion"
 // Add these imports at the top with the other imports
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
+import { useQuery } from "@tanstack/react-query"
+import { getLectureById } from "@/lib/api"
 
 // Mock data for lectures
 const lecturesData = [
@@ -95,6 +97,7 @@ export default function LectureDetailPage() {
   // Add this to the state declarations after the other state variables
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentText, setCommentText] = useState("")
+  
   const [comments, setComments] = useState([
     {
       id: 1,
@@ -132,13 +135,18 @@ export default function LectureDetailPage() {
   ])
 
   // Find the lecture with the matching ID
-  const lecture = lecturesData.find((l) => l.id === lectureId)
+  // const lecture = lecturesData.find((l) => l.id === lectureId)
 
-  useEffect(() => {
-    if (lecture) {
-      setLikeCount(lecture.likes)
-    }
-  }, [lecture])
+  const { data : lectureData, isLoading } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: ({ signal }) => getLectureById(lectureId, signal),
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+  })
+  // useEffect(() => {
+  //   if (lecture) {
+  //     setLikeCount(lecture.likes)
+  //   }
+  // }, [lecture])
 
   // Handle button clicks with animations
   const handleSaveClick = () => {
@@ -155,7 +163,7 @@ export default function LectureDetailPage() {
   // Add this new function after handleLikeClick
   const handleCopyLink = () => {
     // Create a URL to share (in a real app, this would be the actual URL)
-    const shareUrl = `${window.location.origin}/lectures/${lecture.id}`
+    const shareUrl = `${window.location.origin}/lectures/${lectureId}`
 
     // Copy to clipboard
     navigator.clipboard
@@ -206,7 +214,7 @@ export default function LectureDetailPage() {
   }
 
   // If lecture not found, show error
-  if (!lecture) {
+  if (!lectureData) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <h1 className="text-2xl font-bold mb-4">Lecture not found</h1>
@@ -219,51 +227,47 @@ export default function LectureDetailPage() {
     )
   }
 
-  const relatedLectures = getRelatedLectures(lecture)
+  // const relatedLectures = getRelatedLectures(lecture)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b ">
       <div className="container px-4 py-8 mx-auto">
         <Link href="/lectures" className="flex items-center text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-5 h-5 mr-1" />
           Back to Lectures
         </Link>
 
-        <div className="bg-white rounded-xl shadow-sm p-8 mb-8">
+        <div className="bg-white rounded-xl shadow-sm p-8 mb-8 shadow-md border border-gray-200">
           <div className="flex flex-col md:flex-row gap-8">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-4">{lecture.title}</h1>
-              <p className="text-gray-600 mb-6">{lecture.description}</p>
+              <h1 className="text-3xl font-bold mb-4">{lectureData?.title}</h1>
+              <p className="text-gray-600 mb-6">{lectureData?.description}</p>
 
               <div className="flex flex-wrap gap-4 mb-6">
-                <div className="flex items-center text-gray-600">
-                  <Clock className="w-4 h-4 mr-2" />
-                  <span>{lecture.duration} minutes</span>
-                </div>
+                
                 <div className="flex items-center text-gray-600">
                   <User className="w-4 h-4 mr-2" />
-                  <span>{lecture.author}</span>
+                  <span>{lectureData?.profile?.name}</span>
                 </div>
                 <div className="flex items-center text-gray-600">
                   <Calendar className="w-4 h-4 mr-2" />
-                  <span>{new Date(lecture.date).toLocaleDateString()}</span>
+                  <span>{new Date(lectureData?.date).toLocaleDateString()}</span>
                 </div>
               </div>
 
-              {lecture.courseId && (
+              {lectureData?.course_id && (
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg">
                   <p className="text-sm text-blue-800">This lecture is part of the course:</p>
-                  <Link href={`/courses/${lecture.courseId}`} className="font-medium text-blue-600 hover:underline">
-                    {lecture.courseName}
+                  <Link href={`/courses/${lectureData?.course_id}`} className="font-medium text-blue-600 hover:underline">
+                    {lectureData?.course.name}
                   </Link>
                 </div>
               )}
 
               <Button
-                className="w-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-6 text-lg shadow-md hover:shadow-lg transition-all"
-                onClick={() => router.push(`/lectures/${lecture.id}/learn`)}
+                className="w-full rounded-full bg-gradient-to-r py-6 text-lg shadow-md hover:shadow-lg transition-all w-full rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                onClick={() => router.push(`/lectures/${lectureId}/learn`)}
               >
-                <Play className="w-5 h-5 mr-2" />
                 Learn Now
               </Button>
             </div>
@@ -274,15 +278,12 @@ export default function LectureDetailPage() {
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Category:</span>
-                    <Badge className="bg-blue-100 text-blue-800">{lecture.category}</Badge>
+                    <Badge className="bg-blue-100 text-blue-800">{lectureData?.category}</Badge>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium">{lecture.duration} minutes</span>
-                  </div>
+                 
                   <div className="flex justify-between">
                     <span className="text-gray-600">Published:</span>
-                    <span className="font-medium">{new Date(lecture.date).toLocaleDateString()}</span>
+                    <span className="font-medium">{new Date(lectureData?.date).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -292,12 +293,12 @@ export default function LectureDetailPage() {
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-sm font-medium">Your Progress</span>
-                    <span className="text-sm font-medium">{lecture.progress || 0}%</span>
+                    <span className="text-sm font-medium">{lectureData?.progress || 0}%</span>
                   </div>
                   <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-500 rounded-full"
-                      style={{ width: `${lecture.progress || 0}%` }}
+                      style={{ width: `${lectureData?.progress || 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -361,7 +362,7 @@ export default function LectureDetailPage() {
                       onClick={() => setCommentsOpen(true)}
                     >
                       <MessageSquare className="mr-2 h-4 w-4" />
-                      Comment ({lecture.comments})
+                      Comment ({lectureData.comment_count || 0})
                     </Button>
                   </motion.div>
                 </div>
@@ -370,7 +371,7 @@ export default function LectureDetailPage() {
           </div>
         </div>
 
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <h2 className="text-2xl font-bold mb-6">Related Lectures</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -409,7 +410,7 @@ export default function LectureDetailPage() {
               </Link>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
       {/* Share Popup */}
       {sharePopupOpen && (
@@ -433,7 +434,7 @@ export default function LectureDetailPage() {
             </div>
 
             <div className="mb-6">
-              <p className="text-sm text-gray-500 mb-4">Share "{lecture.title}" with your friends and colleagues</p>
+              <p className="text-sm text-gray-500 mb-4">Share "{lectureData.title}" with your friends and colleagues</p>
 
               <div className="grid grid-cols-4 gap-3 mb-6">
                 <Button variant="outline" className="flex flex-col items-center p-3 h-auto">
@@ -457,7 +458,7 @@ export default function LectureDetailPage() {
               <div className="relative">
                 <div className="flex items-center border rounded-full overflow-hidden bg-gray-50">
                   <div className="flex-1 px-4 py-2 text-sm truncate">
-                    {`${window.location.origin}/lectures/${lecture.id}`}
+                    {`${window.location.origin}/lectures/${lectureId}`}
                   </div>
                   <Button
                     variant="ghost"
