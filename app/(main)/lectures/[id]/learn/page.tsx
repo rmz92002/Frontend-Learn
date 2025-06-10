@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { useSearchParams, useParams } from "next/navigation"
+import { useSearchParams, useParams, redirect } from "next/navigation"
 import Link from "next/link"
 import {
   ChevronLeft, Play, Pause, MessageSquare, Send, X, Brain,
@@ -70,32 +70,32 @@ export default function LearningView() {
   /* ------------------------------------------------------------------ */
   useEffect(() => {
     if (!isNewlyCreated) return;
-    const controller = new AbortController();
   
-    streamLecture(id, { isNew: true }, controller.signal)
-      .then(res =>
-        readSSE(res, evt => {
-          if (evt.status === "outline_complete") {
-            setTotalSections(evt.outline.length);
-            setCourseTitle(evt.title);
-            setLectureStatus("Generating slides…");
-          }
-          if (evt.status === "html_complete") {
-            setLecturePages(p => {
-              const copy = [...p];
-              copy[evt.index] = evt.html;
-              return copy;
-            });
-            setAvailableSections(p => [...p, evt.index]);
-          }
-          if (evt.progress)      setGenerationProgress(evt.progress);
-          if (evt.status === "complete") setIsGeneratingContent(false);
-        })
-      )
-      .catch(console.error);
+    // 1️⃣ keep one controller for the whole component‑lifetime
+    const controllerRef = controllerRef ?? new AbortController();
+    const { signal } = controllerRef;
   
-    return () => controller.abort();
-  }, [id, isNewlyCreated]);
+    // 2️⃣ do NOT blow up if React’s test‑cleanup aborts us
+    const fetchStream = async () => {
+      try {
+        const res = await streamLecture(id, { isNew: true }, signal);
+        if (!res.ok) {
+          // The generator may not be ready yet – try again in 500 ms
+          setTimeout(fetchStream, 500);
+          return;
+        }
+        await readSSE(res, handleSSE, signal);
+      } catch (err: any) {
+        if (err.name !== "AbortError") console.error(err);
+      }
+    };
+  
+    fetchStream();
+  
+    // 3️⃣ abort **only** when the component really unmounts
+    return () => controllerRef.abort();
+  }, [id, isNewlyCreated]);   // 👈 stays stable, so this runs just once
+  
 
   /**
  * Stream an SSE response and call `onMessage(json)` for every complete event.
@@ -182,13 +182,13 @@ async function readSSE(
     <div className="h-[100vh] flex flex-col">
       {/* header */}
       <header className="border-b p-5 py-7 flex items-center justify-between">
-        <Link href={`/courses/${slug}`} className="flex items-center text-sm">
+        <Link href={`/lectures/${id}`} className="flex items-center text-sm">
           <ChevronLeft className="h-5 w-5 mr-1" />
           Back to {courseTitle}
         </Link>
-        <Badge className="bg-green-300 text-black flex items-center">
+        {/* <Badge className="bg-green-300 text-black flex items-center mr-20">
           <Brain className="h-4 w-4 mr-1" /> AI
-        </Badge>
+        </Badge> */}
       </header>
 
       {/* progress bar */}
@@ -218,17 +218,26 @@ async function readSSE(
       </main>
 
       {/* nav buttons */}
+      
+      
       <footer className="p-4 flex justify-between bg-transparent backdrop-blur-sm border-t">
         <Button onClick={goPrev} disabled={currentSection === 0} variant="outline">
           <ChevronLeft className="h-4 w-4 mr-2" /> Previous
         </Button>
-        <Button
+        {currentSection >= totalSections - 1 ? (
+          <Button
+          onClick={() => redirect('/lectures')}
+          className="bg-green-500 text-white hover:bg-green-500  "
+        >
+          Finish <ChevronLeft className="h-4 w-4 ml-2 rotate-180 " />
+        </Button>
+        ):
+        (<Button
           onClick={goNext}
-          disabled={currentSection >= totalSections}
           className="bg-black text-white"
         >
           Next <ChevronLeft className="h-4 w-4 ml-2 rotate-180" />
-        </Button>
+        </Button>)} 
       </footer>
     </div>
   )

@@ -27,10 +27,11 @@ const colorMap = {
 
 export default function LecturesPage() {
   const { data : lecturesData, isLoading, isError } = useQuery({
-      queryKey: ['currentUser'],
+      queryKey: ['lecturesInProgress', 1, 1, 10],
       queryFn: ({ signal }) => getLecturesInProgress(1, 1, 10, signal),
       staleTime: 60 * 60 * 1000, // Cache for 1 hour
     })
+
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
 
@@ -122,9 +123,9 @@ export default function LecturesPage() {
 
         {/* Lectures grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {lecturesData ? (
+          {!isLoading? (
             lecturesData.map((lecture) => (
-              <Link href={`/lectures/${lecture.lecture_id}`} passHref>
+              <Link href={`/lectures/${lecture.lecture_id}`} key={lecture.lecture_id} passHref>
                     <Card className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 backdrop-blur-sm shadow-md transition-shadow hover:shadow-lg">
                       <CardContent className="flex h-full flex-col gap-6 p-6">
                         <div className="flex justify-between">
@@ -140,7 +141,7 @@ export default function LecturesPage() {
                           <h3 className="line-clamp-2 text-lg font-semibold leading-tight">
                             {lecture.title}
                           </h3>
-                          <p className="line-clamp-2 text-sm text-muted-foreground">
+                          <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">
                             {lecture.description}
                           </p>
                         </div>

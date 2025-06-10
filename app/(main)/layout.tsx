@@ -25,6 +25,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { getCurrentUser } from "@/lib/api"
 import { useQuery } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
+
 
 
 
@@ -45,6 +47,7 @@ export default function MainLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const pathname = usePathname()
   // const isProfilePage = pathname === "/profile" || pathname?.startsWith("/profile/")
   const isProfilePage = false
@@ -57,18 +60,20 @@ export default function MainLayout({
     window.location.href = "/login"
   }
 
-  // const { data: userData } = useQuery({
-  //   queryKey: ['currentUser'],
-  //   queryFn: ({ signal }) => getCurrentUser(signal),
-  //   staleTime: 60 * 60 * 1000, // Cache for 1 hour
-  // })
-  const userData = {
-    email: "rmz92002@gmail.com",
-    name: "Rami Zahr",
-    profile: {
-      avatar_url: "https://avatars.githubusercontent.com/u/92002?v=4",
-    },
-  }
+  const { data: userData, isLoading } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: ({ signal }) => getCurrentUser(signal),
+    retry: false,            // <-  ❗️no silent retries
+    staleTime: 60 * 60 * 1000,
+  })
+
+  // const userData = {
+  //   email: "rmz92002@gmail.com",
+  //   name: "Rami Zahr",
+  //   profile: {
+  //     avatar_url: "https://avatars.githubusercontent.com/u/92002?v=4",
+  //   },
+  // }
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -130,7 +135,7 @@ export default function MainLayout({
               <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
                 {/* Notification Bell */}
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                  {/* <DropdownMenuTrigger asChild>
                     <button className="focus:outline-none relative">
                       <div className="h-10 w-10 flex items-center justify-center bg-white rounded-full shadow-sm hover:ring-2 hover:ring-gray-200 transition-all">
                         <Bell className="h-5 w-5 text-gray-700" />
@@ -141,7 +146,7 @@ export default function MainLayout({
                         )}
                       </div>
                     </button>
-                  </DropdownMenuTrigger>
+                  </DropdownMenuTrigger> */}
                   <DropdownMenuContent className="w-80 p-0 rounded-xl mr-2 mt-1" align="end">
                     <div className="p-3 border-b flex items-center justify-between">
                       <h3 className="font-bold flex items-center">

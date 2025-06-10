@@ -1,20 +1,21 @@
-// loadenv()
-
 export async function getCurrentUser(signal?: AbortSignal) {
-    const response = await fetch('http://localhost:8000/auth/me', {
-      signal,
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch user')
-    }
-    
-    return response.json()
+  const res = await fetch("http://localhost:8000/auth/me", {
+    signal,
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  })
+
+  if (res.status === 401) {
+    // not logged in
+    return null                    // <-  ❗️return, don’t throw
   }
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch user")
+  }
+
+  return res.json() 
+}
 
   // get lecutre
 
@@ -125,8 +126,8 @@ export interface LectureInProgress {
   progress: number;
   date: string;      // ISO 8601 timestamp
   category: string;
+  lecture_id: string;
 }
-
 export async function getLecturesInProgress(
   profileId: number,
   page = 1,
@@ -136,9 +137,11 @@ export async function getLecturesInProgress(
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_URL}/lectures`
   );
-  url.searchParams.set("profile_id", profileId);
+  url.searchParams.set("profile_id", `${profileId}`);
   url.searchParams.set("page", String(page));
   url.searchParams.set("page_size", String(pageSize));
+  console.log("→ fetching lectures:", url.toString());
+
 
   const response = await fetch(url.toString(), {
     method: "GET",
@@ -149,10 +152,14 @@ export async function getLecturesInProgress(
     signal,
   });
 
+  console.log("→ fetching lectures:", url.toString());
+
+
   if (!response.ok) {
     throw new Error(`Failed to fetch lectures: ${response.status}`);
   }
-
+  
+ 
   return response.json();
 }
 

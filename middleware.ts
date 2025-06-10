@@ -1,44 +1,51 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { jwtVerify, JWTPayload } from "jose"
 
-export function middleware(request: NextRequest) {
-  const session = request.cookies.get('access_token')?.value;
-  const { pathname } = request.nextUrl;
+/* ────────────────────────────────────────────────────────────── */
+/* tiny helper to validate & decode the cookie JWT                */
+async function validateJWT(token: string): Promise<JWTPayload | null> {
+  try {
+    // HS256 shared secret
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET!)
+    const { payload } = await jwtVerify(token, secret)
+    console.log("JWT payload:", payload)
+    return payload            // { sub: "...", exp: 1715700000, ... }
+  } catch {
+    console.error("JWT validation failed",token)
+    return null               // invalid signature, expired, malformed, …
+  }
+}
+/* ────────────────────────────────────────────────────────────── */
 
-  // Middleware logic now only runs for paths defined in the matcher
-  // So we don't need the explicit asset checks inside the function
+export async function middleware(req: NextRequest) {
+  const token = req.cookies.get("access_token")?.value
+  const { pathname } = req.nextUrl
 
-  // If user tries to visit /login but already has a session, redirect home
-  // Using === '/login' is fine now as matcher handles sub-paths if needed
-  if (pathname === '/login' && session) {
-    return NextResponse.redirect(new URL('/', request.url));
+  // pages that *don’t* need auth
+  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup")
+
+  // validate JWT (returns null if missing or bad)
+  const jwtPayload = token ? await validateJWT(token) : null
+
+  console.log("JWT token:", token)
+
+
+  /* ---------- already logged in, hitting /login? -> home ---------- */
+  if (isAuthPage && jwtPayload) {
+    return NextResponse.redirect(new URL("/", req.url))
   }
 
-  // If user tries to visit a protected route (any route matched by the matcher
-  // *except* /login) but has no session, redirect to /login
-  if (pathname !== '/login' && !session) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  /* ---------- protected route, but no valid token? -> /login ------ */
+  if (!isAuthPage && !jwtPayload) {
+    return NextResponse.redirect(new URL("/login", req.url))
   }
 
-  // Allow the request to proceed
-  return NextResponse.next();
+  /* ---------- all good, let the request pass through -------------- */
+  return NextResponse.next()
 }
 
-// Config object to specify paths middleware should apply to
+/* matcher excludes static files & /api routes */
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - Any path containing a dot (.) likely indicating a file extension
-     */
-     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)',
-     // Note: If you *do* have page routes with dots in their names,
-     // you might need a more specific pattern or stick to Solution 1.
-     // A slightly less strict version without the dot check:
-     // '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
-};
+  matcher: "/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)",
+}

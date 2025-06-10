@@ -40,10 +40,12 @@ import {
   ArrowLeft,
   LogOut,
   Trash2,
-  Upload
+  Upload,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
-import { getSettingsUser } from "@/lib/api";
+import { getSettingsUser, updateSettingsUser } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * -----------------------------
@@ -127,6 +129,7 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [hashed_password, setHashedPassword] = useState<boolean | undefined>();
 
   const [difficulty, setDifficulty] = useState<string | undefined>();
   const [audioEnabled, setAudioEnabled] = useState(false);
@@ -150,15 +153,15 @@ export default function SettingsPage() {
     setBio(userData.bio || "");
     setAvatar(userData.avatar_url || null);
 
-    setDifficulty(userData.preferences?.difficulty);
-    setAudioEnabled(userData.preferences?.audioEnabled);
-    setDarkMode(userData.preferences?.darkMode);
-    setLanguage(userData.preferences?.language);
+    setDarkMode(userData.dark_mode || false);
+    setLanguage(userData.language || "en");
 
-    setEmailNotifications(userData.notifications?.emailEnabled);
-    setPushNotifications(userData.notifications?.pushEnabled);
+    setEmailNotifications(userData.email_notifications || false);
+    setPushNotifications(userData.push_notifications || false);
 
-    setPublicProfile(userData.privacy?.publicProfile);
+    setPublicProfile(userData.public_profile || false);
+    setHashedPassword(userData.hashed_password)
+
   }, [userData]);
 
   /** --------------------------------------------------
@@ -172,7 +175,12 @@ export default function SettingsPage() {
     onError: (err: Error) => alert(err.message),
   };
 
-  const profileMutation = useMutation({ mutationFn: updateProfile, ...mutationOptions });
+  const profileMutation = useMutation({
+  mutationFn: (settings: Parameters<typeof updateSettingsUser>[0]) =>
+    updateSettingsUser(settings),
+  ...mutationOptions,
+});
+
   const passwordMutation = useMutation({
     mutationFn: updatePassword,
     onSuccess: () => {
@@ -206,17 +214,28 @@ export default function SettingsPage() {
 
   const handleSaveSettings = () => {
     profileMutation.mutate({
-      name,
-      email,
-      bio,
-      preferences: { difficulty, audioEnabled, darkMode, language },
-      notifications: {
-        emailEnabled: emailNotifications,
-        pushEnabled: pushNotifications,
-      },
-      privacy: { publicProfile },
-    });
+    name,
+    email,               // if your schema really wants `email`             // ← add this
+    bio,
+    dark_mode: darkMode,
+    language: language,  // trim any trailing newline (see below)
+    email_notifications: emailNotifications,
+    push_notifications: pushNotifications,
+    public_profile: publicProfile,
+  });
   };
+  function buildPayload() {
+  return {
+    name,
+    email,
+    bio,
+    dark_mode: darkMode,
+    language,
+    email_notifications: emailNotifications,
+    push_notifications: pushNotifications,
+    public_profile: publicProfile,
+  };
+}
 
   const handlePasswordUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,73 +245,130 @@ export default function SettingsPage() {
 
   /** --------------------------------------------------
    * JSX
-   * --------------------------------------------------*/
-  if (isLoading) return <div className="flex items-center justify-center h-32">Loading…</div>;
-  if (isError) return <div className="text-red-600">Error: {(error as Error).message}</div>;
-
-  return (
-    
-
-<div className="container  mx-auto p-6">
-      {/* <Link href="/profile" className="flex items-center gap-2 mb-8 text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back to Profile</span>
-      </Link> */}
-      <div className="space-y-6 mt-14">
+  //  * --------------------------------------------------*/
+  if (isLoading) {
+    // Instagram-like skeletons for loading state
+    return (
+      <div className="container mx-auto p-6">
+        <div className="space-y-6 mt-14">
           <Card className="p-6 shadow-sm">
             <div className="flex flex-col md:flex-row gap-8 mb-6">
               <div className="flex flex-col items-center gap-4">
-                <Avatar className="w-32 h-32 border-2">
-                  <AvatarImage src={avatar || "/placeholder-avatar.svg"} />
-                  <AvatarFallback className="text-3xl">
-                    {name[0]?.toUpperCase() || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <input
-                  type="file"
-                  id="avatar-input"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById("avatar-input")?.click()}
-                  disabled={avatarMutation.isLoading}
-                >
-                  {avatarMutation.isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  Change Photo
-                </Button>
+                <Skeleton className="w-32 h-32 rounded-full" />
+                <Skeleton className="w-24 h-8 rounded" />
               </div>
-
               <div className="flex-1 space-y-4">
-                <div className="space-y-1">
-                  <Label>Display Name</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Email Address</Label>
-                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Bio</Label>
-                  <Textarea
-                    rows={3}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className="resize-none"
-                  />
-                </div>
+                <Skeleton className="h-6 w-1/2 rounded" />
+                <Skeleton className="h-6 w-2/3 rounded" />
+                <Skeleton className="h-20 w-full rounded" />
               </div>
             </div>
-          
           </Card>
+          <Card className="p-6 shadow-sm">
+            <Skeleton className="h-6 w-1/3 mb-4 rounded" />
+            <Skeleton className="h-10 w-full rounded mb-2" />
+            <Skeleton className="h-10 w-full rounded mb-2" />
+            <Skeleton className="h-10 w-full rounded" />
+          </Card>
+          <Card className="p-6 shadow-sm">
+            <Skeleton className="h-6 w-1/3 mb-4 rounded" />
+            <Skeleton className="h-10 w-full rounded mb-2" />
+            <Skeleton className="h-10 w-full rounded" />
+          </Card>
+          <Card className="rounded-2xl shadow-md border border-muted">
+            <Skeleton className="h-6 w-1/3 mb-4 rounded" />
+            <Skeleton className="h-10 w-full rounded mb-2" />
+            <Skeleton className="h-10 w-full rounded" />
+          </Card>
+          <Card className="rounded-2xl shadow-sm border border-muted bg-background">
+            <Skeleton className="h-6 w-1/3 mb-4 rounded" />
+            <Skeleton className="h-10 w-full rounded" />
+          </Card>
+          <Card className="rounded-2xl border border-destructive/40 bg-destructive/10 shadow-sm">
+            <Skeleton className="h-6 w-1/3 mb-4 rounded" />
+            <Skeleton className="h-10 w-full rounded mb-2" />
+            <Skeleton className="h-10 w-full rounded" />
+          </Card>
+        </div>
+        <div className="sticky bottom-0 p-4 mt-8 flex justify-end z-10">
+          <Skeleton className="h-10 w-40 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-32 text-red-600">
+        Error: {(error as Error).message}
+      </div>
+    );
+  }
+  return (
+<div className="container  mx-auto p-6">
+      <div className="space-y-6 mt-14">
+          <Card className="p-6 shadow-sm">
+  <div className="flex flex-col md:flex-row gap-8 mb-6">
+    <div className="flex flex-col items-center gap-4">
+      <Avatar className="w-32 h-32 border-2">
+        <AvatarImage src={avatar || "/placeholder-avatar.svg"} />
+        <AvatarFallback className="text-3xl">
+          {name[0]?.toUpperCase() || "U"}
+        </AvatarFallback>
+      </Avatar>
+      <input
+        type="file"
+        id="avatar-input"
+        className="hidden"
+        accept="image/*"
+        onChange={handleAvatarChange}
+      />
+      <Button
+        variant="outline"
+        onClick={() => document.getElementById("avatar-input")?.click()}
+        disabled={avatarMutation.isLoading}
+      >
+        {avatarMutation.isLoading ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Upload className="mr-2 h-4 w-4" />
+        )}
+        Change Photo
+      </Button>
+    </div>
+    <div className="flex-1 space-y-4">
+      <div className="space-y-1">
+        <Label>Display Name</Label>
+        <Input value={name} onChange={e => setName(e.target.value)} />
+      </div>
+      <div className="space-y-1">
+        <Label>Email Address</Label>
+        <Input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+      </div>
+      <div className="space-y-1">
+        <Label>Bio</Label>
+        <Textarea
+          rows={3}
+          value={bio}
+          onChange={e => setBio(e.target.value)}
+          className="resize-none"
+        />
+      </div>
+      <div className="flex justify-end pt-2">
+        <Button 
+          onClick={handleSaveSettings} 
+          disabled={profileMutation.isLoading} 
+          className="rounded-lg"
+        >
+          {profileMutation.isLoading ? "Saving…" : "Save Changes"}
+        </Button>
+      </div>
+    </div>
+  </div>
+</Card> 
 
-          <Card className="p-6  shadow-sm">
+
+        {hashed_password? (
+           <Card className="p-6  shadow-sm">
             <CardTitle className="text-lg font-semibold mb-4">Password Settings</CardTitle>
             <form onSubmit={handlePasswordUpdate} className="space-y-4">
               <div className="space-y-1">
@@ -328,6 +404,13 @@ export default function SettingsPage() {
               </Button>
             </form>
           </Card>
+        ): (<Card className="p-6 shadow-sm">
+    <CardTitle className="text-lg font-semibold mb-4">Password Settings</CardTitle>
+    <div className="text-muted-foreground text-sm">
+      This account was created using Google. Password changes are not available.
+    </div>
+  </Card>)}
+         
        
 
           <Card className="p-6 shadow-sm">
@@ -340,7 +423,15 @@ export default function SettingsPage() {
                     Customize your interface appearance
                   </p>
                 </div>
-                <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+                <Switch checked={darkMode}
+                onCheckedChange={checked => {
+    setDarkMode(checked);
+    profileMutation.mutate({
+      ...buildPayload(),
+      dark_mode: checked,
+    });
+  }}
+                />
               </div>
 
               <div className="space-y-1">
@@ -375,7 +466,14 @@ export default function SettingsPage() {
           <Label className="text-base">Email</Label>
           <p className="text-sm text-muted-foreground">Get updates via email</p>
         </div>
-        <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
+        <Switch checked={emailNotifications} 
+        onCheckedChange={checked => {
+    setEmailNotifications(checked);
+    profileMutation.mutate({
+      ...buildPayload(),
+      email_notifications: checked,
+    });
+  }} />
       </div>
 
       <div className="flex items-center justify-between px-1">
@@ -383,7 +481,14 @@ export default function SettingsPage() {
           <Label className="text-base">Push</Label>
           <p className="text-sm text-muted-foreground">Receive push notifications</p>
         </div>
-        <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+        <Switch checked={pushNotifications} 
+        onCheckedChange={checked => {
+    setPushNotifications(checked);
+    profileMutation.mutate({
+      ...buildPayload(),
+      push_notifications: checked,
+    });
+  }} />
       </div>
     </CardContent>
 
@@ -402,7 +507,13 @@ export default function SettingsPage() {
     <CardContent className="space-y-4">
       <div className="flex items-center justify-between">
         <Label className="text-muted-foreground">Public profile</Label>
-        <Switch checked={publicProfile} onCheckedChange={setPublicProfile} />
+        <Switch checked={publicProfile} onCheckedChange={checked => {
+    setPublicProfile(checked);
+    profileMutation.mutate({
+      ...buildPayload(),
+      public_profile: checked,
+    });
+  }} />
       </div>
     </CardContent>
     
@@ -437,17 +548,6 @@ export default function SettingsPage() {
     </CardContent>
   </Card>
 </div>
-
-<div className="sticky bottom-0 p-4 mt-8  flex justify-end z-10">
-  <Button 
-    onClick={handleSaveSettings} 
-    disabled={profileMutation.isLoading} 
-    className="rounded-lg"
-  >
-    {profileMutation.isLoading ? "Saving…" : "Save All Changes"}
-  </Button>
-  </div>
-        {/* Notifications and Privacy tabs remain similar with consistent styling */}
         
     </div>
   );

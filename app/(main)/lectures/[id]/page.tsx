@@ -33,6 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { useQuery } from "@tanstack/react-query"
 import { getLectureById } from "@/lib/api"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Mock data for lectures
 const lecturesData = [
@@ -138,10 +139,11 @@ export default function LectureDetailPage() {
   // const lecture = lecturesData.find((l) => l.id === lectureId)
 
   const { data : lectureData, isLoading } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: ['GettingLecture', lectureId],
     queryFn: ({ signal }) => getLectureById(lectureId, signal),
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
   })
+  console.log(lectureData)
   // useEffect(() => {
   //   if (lecture) {
   //     setLikeCount(lecture.likes)
@@ -214,16 +216,39 @@ export default function LectureDetailPage() {
   }
 
   // If lecture not found, show error
-  if (!lectureData) {
+  if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Lecture not found</h1>
-        <p className="mb-8">The lecture you're looking for doesn't exist or has been removed.</p>
-        <Button onClick={() => router.push("/lectures")}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Lectures
-        </Button>
+       <div className="bg-white rounded-xl shadow-sm p-8 mb-8 shadow-md border border-gray-200 animate-pulse">
+    <div className="flex flex-col md:flex-row gap-8">
+      <div className="flex-1">
+        <Skeleton className="h-10 w-2/3 mb-4" />
+        <Skeleton className="h-5 w-3/4 mb-6" />
+        <div className="flex flex-wrap gap-4 mb-6">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+        <Skeleton className="h-16 w-full mb-6 rounded-lg" />
+        <Skeleton className="h-12 w-full rounded-full" />
       </div>
+      <div className="md:w-1/3 flex flex-col">
+        <div className="bg-gray-50 rounded-xl p-6 mb-6">
+          <Skeleton className="h-5 w-32 mb-4" />
+          <Skeleton className="h-4 w-20 mb-2" />
+          <Skeleton className="h-4 w-20 mb-2" />
+        </div>
+        <div className="mb-4">
+          <Skeleton className="h-4 w-28 mb-2" />
+          <Skeleton className="h-2 w-full rounded-full" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Skeleton className="h-10 w-24 rounded-full" />
+          <Skeleton className="h-10 w-24 rounded-full" />
+          <Skeleton className="h-10 w-24 rounded-full" />
+          <Skeleton className="h-10 w-24 rounded-full" />
+        </div>
+      </div>
+    </div>
+  </div>
     )
   }
 
@@ -236,12 +261,21 @@ export default function LectureDetailPage() {
           <ArrowLeft className="w-5 h-5 mr-1" />
           Back to Lectures
         </Link>
-
-        <div className="bg-white rounded-xl shadow-sm p-8 mb-8 shadow-md border border-gray-200">
+        {!lectureData? (
+          <div className="container mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold mb-4">Lecture not found</h1>
+        <p className="mb-8">The lecture you're looking for doesn't exist or has been removed.</p>
+        <Button onClick={() => router.push("/lectures")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Lectures
+        </Button>
+      </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm p-8 mb-8 shadow-md border border-gray-200">
           <div className="flex flex-col md:flex-row gap-8">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-4">{lectureData?.title}</h1>
-              <p className="text-gray-600 mb-6">{lectureData?.description}</p>
+              <h1 className="text-3xl font-bold mb-4">{lectureData.title}</h1>
+              <p className="text-gray-600 mb-6">{lectureData.description}</p>
 
               <div className="flex flex-wrap gap-4 mb-6">
                 
@@ -370,6 +404,9 @@ export default function LectureDetailPage() {
             </div>
           </div>
         </div>
+        )}
+
+        
 
         {/* <div className="mb-8">
           <h2 className="text-2xl font-bold mb-6">Related Lectures</h2>

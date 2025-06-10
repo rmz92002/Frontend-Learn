@@ -53,6 +53,7 @@ export default function LoginPage() {
       })
       const { url } = await response.json()
       window.location.href = url
+    
     } catch (error) {
       console.error("Google login failed:", error)
       setGoogleLoading(false)
