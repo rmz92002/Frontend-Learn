@@ -25,6 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import PopularLectures from "@/components/popular-lectures";
+import CommunityExamples from "@/components/community-examples";
 
 export default function HomePage() {
   const router = useRouter();
@@ -49,15 +51,17 @@ export default function HomePage() {
       selectedFiles.forEach(f => form.append("files", f, f.name));
 
       const res = await fetch(process.env.NEXT_PUBLIC_API_URL + "/lectures/start", { method: "POST", body: form });
+      
       if (!res.ok) throw new Error(await res.text());
 
       const { lecture_id } = await res.json();
 
       // pass the title as a convenience query param (optional) and add new = true
-      router.push(
-        `/lectures/${lecture_id}/learn?` +
-        `title=${encodeURIComponent(lectureQuery.trim())}&new=true`
-      );
+      // router.push(
+      //   `/lectures/${lecture_id}/learn?` +
+      //   `title=${encodeURIComponent(lectureQuery.trim())}&new=true`
+      // );
+      router.push('/lectures')
       // add new to the router 
     } catch (err) {
       console.error(err);
@@ -91,13 +95,13 @@ export default function HomePage() {
   ];
 
   const popularTopics = [
-    { icon: <Code className="w-6 h-6" />, label: "Programming Basics", bg: "bg-purple-100" },
-    { icon: <Globe className="w-6 h-6" />, label: "World History",       bg: "bg-green-100" },
-    { icon: <Calculator className="w-6 h-6" />, label: "Calculus",       bg: "bg-yellow-100" },
-    { icon: <Microscope className="w-6 h-6" />, label: "Biology",        bg: "bg-teal-100"  },
-    { icon: <Music className="w-6 h-6" />, label: "Music Theory",        bg: "bg-orange-100"},
-    { icon: <Camera className="w-6 h-6" />, label: "Photography",        bg: "bg-pink-100" },
-    { icon: <Cpu className="w-6 h-6" />, label: "Computer Science",      bg: "bg-red-100"  },
+    { icon: <Code className="w-6 h-6" />, label: "How to write a for loop in Python", bg: "bg-purple-100" },
+    { icon: <Globe className="w-6 h-6" />, label: "Causes of World War I", bg: "bg-green-100" },
+    { icon: <Calculator className="w-6 h-6" />, label: "The Pythagorean Theorem", bg: "bg-yellow-100" },
+    { icon: <Microscope className="w-6 h-6" />, label: "How photosynthesis works", bg: "bg-teal-100" },
+    { icon: <Music className="w-6 h-6" />, label: "Reading sheet music basics", bg: "bg-orange-100" },
+    { icon: <Camera className="w-6 h-6" />, label: "How to take a portrait photo", bg: "bg-pink-100" },
+    { icon: <Cpu className="w-6 h-6" />, label: "What is a neural network?", bg: "bg-red-100" },
     {
       icon: (
         <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none">
@@ -105,7 +109,7 @@ export default function HomePage() {
           <path d="M3 12h1M12 3v1m8 8h1m-9 8v1m6.364-14.364l-.707.707M5.636 5.636l.707.707m-.707 10.607l.707-.707m10.607.707l-.707-.707" stroke="currentColor" strokeWidth="2" />
         </svg>
       ),
-      label: "Neural Networks",
+      label: "Why do we dream?",
       bg: "bg-blue-100",
     },
   ];
@@ -213,26 +217,32 @@ export default function HomePage() {
         </div>
 
         {/* Popular topics grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 w-full max-w-4xl mb-16">
+        <div className="flex flex-row flex-wrap gap-3 w-full max-w-4xl mb-10 justify-center">
           {popularTopics.map((topic, index) => (
             <Card
               key={index}
-              className="p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-transform rounded-2xl border border-gray-100 hover:border-gray-200 hover:scale-105 bg-white"
+              className="flex flex-row items-center gap-2 px-3 py-2 text-center cursor-pointer hover:shadow-lg transition-transform rounded-xl border border-gray-100 hover:border-gray-200 hover:scale-105 bg-white min-w-[180px] max-w-xs"
+              style={{ minHeight: 0 }}
               onClick={() => {
                 setLectureQuery(topic.label);
-                setTimeout(() => handleCreateLecture(), 100);
               }}
             >
               <div
-                className={`w-16 h-16 ${topic.bg} rounded-full flex items-center justify-center mb-3`}
+                className={`w-10 h-10 ${topic.bg} rounded-full flex items-center justify-center`}
               >
                 {topic.icon}
               </div>
-              <span className="font-medium text-sm md:text-base">{topic.label}</span>
+              <span className="font-medium text-xs md:text-sm leading-tight text-left whitespace-normal">{topic.label}</span>
             </Card>
           ))}
         </div>
+
+        {/* Community Examples (Popular Lectures) */}
       </div>
+    </div>
+    <div className="w-full max-w-6xl mx-auto mb-16">
+      <h2 className="text-xl mb-4 font-bold text-gray-800">From the Community</h2>
+      <CommunityExamples />
     </div>
   </div>
   );

@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React, { useState, useEffect, useRef } from "react"
 
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -26,14 +26,14 @@ import {
   X,
 } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 // Add these imports at the top with the other imports
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { useQuery } from "@tanstack/react-query"
-import { getLectureById } from "@/lib/api"
+import { getLectureById, likeLecture, saveLecture, getLectureComments, createLectureComment, getCommentReplies, likeComment } from "@/lib/api"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 // Mock data for lectures
 const lecturesData = [
@@ -92,6 +92,9 @@ export default function LectureDetailPage() {
   const [isLiked, setIsLiked] = useState(false)
   const [shareAnimation, setShareAnimation] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
+  // Replace userId state and getCurrentUser with useCurrentUser
+  const { data: user, isLoading: userLoading } = useCurrentUser();
+  const userId = user?.profile?.id ?? null
   // Add sharePopupOpen state after the other state declarations
   const [sharePopupOpen, setSharePopupOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
@@ -99,41 +102,19 @@ export default function LectureDetailPage() {
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentText, setCommentText] = useState("")
   
-  const [comments, setComments] = useState([
-    {
-      id: 1,
-      author: {
-        name: "Sarah Johnson",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "SJ",
-      },
-      text: "This lecture was incredibly helpful! I especially liked the practical examples that were provided.",
-      date: "2 days ago",
-      likes: 12,
-    },
-    {
-      id: 2,
-      author: {
-        name: "Michael Chen",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "MC",
-      },
-      text: "Great explanation of complex concepts. Would love to see more content like this in the future.",
-      date: "1 week ago",
-      likes: 8,
-    },
-    {
-      id: 3,
-      author: {
-        name: "Alex Rodriguez",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "AR",
-      },
-      text: "I had a question about the implementation discussed at 12:45. Is there a way to optimize that approach for larger datasets?",
-      date: "2 weeks ago",
-      likes: 3,
-    },
-  ])
+  const [comments, setComments] = useState<any[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [commentsPage, setCommentsPage] = useState(1)
+  const [hasMoreComments, setHasMoreComments] = useState(true)
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false)
+  const commentsPageSize = 10
+  const commentsContainerRef = useRef<HTMLDivElement>(null)
+
+  // New state for replies loading and data
+  const [repliesState, setRepliesState] = useState<{ [commentId: number]: { loading: boolean, replies: any[], visible: boolean } }>({})
+
+  // Add state to track like loading for comments
+  const [commentLikeLoading, setCommentLikeLoading] = useState<{ [commentId: number]: boolean }>({})
 
   // Find the lecture with the matching ID
   // const lecture = lecturesData.find((l) => l.id === lectureId)
@@ -143,16 +124,72 @@ export default function LectureDetailPage() {
     queryFn: ({ signal }) => getLectureById(lectureId, signal),
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
   })
-  console.log(lectureData)
+
   // useEffect(() => {
   //   if (lecture) {
   //     setLikeCount(lecture.likes)
   //   }
   // }, [lecture])
 
+  useEffect(() => {
+    // Set initial like count from lectureData
+    if (lectureData) {
+      setIsSaved(lectureData.saved || false)
+      setLikeCount(lectureData.likes || 0)
+      setIsLiked(lectureData.liked || false)
+    }
+  }, [lectureData])
+
+  // Fetch initial comments
+  useEffect(() => {
+    setCommentsLoading(true)
+    setComments([])
+    setCommentsPage(1)
+    setHasMoreComments(true)
+    getLectureComments(lectureId, 1, commentsPageSize, userId)
+      .then((data) => {
+        setComments(data)
+        setHasMoreComments(data.length === commentsPageSize)
+      })
+      .catch(() => setComments([]))
+      .finally(() => setCommentsLoading(false))
+  }, [lectureId, userId])
+
+  // Load more comments when scrolling near bottom
+  const handleCommentsScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    if (
+      !loadingMoreComments &&
+      hasMoreComments &&
+      el.scrollHeight - el.scrollTop - el.clientHeight < 100
+    ) {
+      setLoadingMoreComments(true)
+      const nextPage = commentsPage + 1
+      try {
+        const data = await getLectureComments(lectureId, nextPage, commentsPageSize, userId)
+        setComments((prev) => [...prev, ...data])
+        setCommentsPage(nextPage)
+        setHasMoreComments(data.length === commentsPageSize)
+      } catch {
+        setHasMoreComments(false)
+      } finally {
+        setLoadingMoreComments(false)
+      }
+    }
+  }
+
   // Handle button clicks with animations
-  const handleSaveClick = () => {
-    setIsSaved(!isSaved)
+  const handleSaveClick = async () => {
+    if (!userId) {
+      alert("You must be logged in to save a lecture.")
+      return
+    }
+    try {
+      const res = await saveLecture(lectureId, userId, !isSaved)
+      setIsSaved(!isSaved)
+    } catch (err) {
+      alert("Failed to update saved status.")
+    }
   }
 
   // Replace the handleShareClick function with this updated version
@@ -184,35 +221,102 @@ export default function LectureDetailPage() {
     setSharePopupOpen(false)
   }
 
-  const handleLikeClick = () => {
-    if (!isLiked) {
-      setLikeCount(likeCount + 1)
-    } else {
-      setLikeCount(likeCount - 1)
+  const handleLikeClick = async () => {
+    if (!userId) {
+      alert("You must be logged in to like a lecture.")
+      return
     }
-    setIsLiked(!isLiked)
+    try {
+      const res = await likeLecture(lectureId, userId, !isLiked)
+      setIsLiked(res.liked)
+      setLikeCount(res.likes)
+    } catch (err) {
+      alert("Failed to update like status.")
+    }
   }
 
   // Add this function after the other handler functions
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!commentText.trim()) return
+    if (!commentText.trim() || !userId) return
 
-    // Add new comment to the list
-    const newComment = {
-      id: comments.length + 1,
-      author: {
-        name: "You",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "YO",
-      },
-      text: commentText,
-      date: "Just now",
-      likes: 0,
+    try {
+      const newComment = await createLectureComment(lectureId, userId, commentText)
+      setComments([newComment, ...comments])
+      setCommentText("")
+    } catch (err) {
+      alert("Failed to post comment.")
     }
+  }
 
-    setComments([newComment, ...comments])
-    setCommentText("")
+  // New state for replying to comments
+  const [replyTo, setReplyTo] = useState<number | null>(null)
+  const [replyText, setReplyText] = useState("")
+
+  // New handler for submitting replies
+  const handleReplySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!replyText.trim() || !userId || replyTo === null) return
+    try {
+      const newReply = await createLectureComment(lectureId, userId, replyText, replyTo)
+      // Insert reply under the correct parent comment
+      setComments((prev) => prev.map(comment =>
+        comment.id === replyTo
+          ? { ...comment, replies: comment.replies ? [newReply, ...comment.replies] : [newReply] }
+          : comment
+      ))
+      setReplyText("")
+      setReplyTo(null)
+    } catch (err) {
+      alert("Failed to post reply.")
+    }
+  }
+
+  // Handler to toggle replies for a comment
+  const handleToggleReplies = async (commentId: number) => {
+    setRepliesState(prev => {
+      const current = prev[commentId]
+      // If already loaded and visible, just hide
+      if (current && current.visible) {
+        return { ...prev, [commentId]: { ...current, visible: false } }
+      }
+      // If already loaded but hidden, just show
+      if (current && !current.visible) {
+        return { ...prev, [commentId]: { ...current, visible: true } }
+      }
+      // Otherwise, set loading and visible
+      return { ...prev, [commentId]: { loading: true, replies: [], visible: true } }
+    })
+    // Only fetch if not already loaded
+    if (!repliesState[commentId]) {
+      try {
+        const data = await getCommentReplies(commentId, 1, 10)
+        setRepliesState(prev => ({ ...prev, [commentId]: { loading: false, replies: data, visible: true } }))
+      } catch {
+        setRepliesState(prev => ({ ...prev, [commentId]: { loading: false, replies: [], visible: true } }))
+      }
+    }
+  }
+
+  // Handler for liking/unliking a comment
+  const handleCommentLike = async (comment: any) => {
+    if (!userId) {
+      alert("You must be logged in to like a comment.")
+      return
+    }
+    setCommentLikeLoading(prev => ({ ...prev, [comment.id]: true }))
+    try {
+      const res = await likeComment(comment.id, userId, !comment.liked)
+      setComments(prev => prev.map(c =>
+        c.id === comment.id
+          ? { ...c, likes: res.likes, liked: res.liked }
+          : c
+      ))
+    } catch (err) {
+      alert("Failed to update like status.")
+    } finally {
+      setCommentLikeLoading(prev => ({ ...prev, [comment.id]: false }))
+    }
   }
 
   // If lecture not found, show error
@@ -361,7 +465,7 @@ export default function LectureDetailPage() {
                     className="flex-1"
                   >
                     <Button variant="outline" className="flex items-center w-full" onClick={handleShareClick}>
-                      <motion.div animate={{ rotate: shareAnimation ? [0, -45, 0] : 0 }} transition={{ duration: 0.5 }}>
+                      <motion.div animate={{ rotate: shareAnimation ? [0, -45,0] : 0 }} transition={{ duration: 0.5 }}>
                         <Share2 className="mr-2 h-4 w-4" />
                       </motion.div>
                       Share
@@ -568,37 +672,105 @@ export default function LectureDetailPage() {
               </form>
             </div>
 
-            <div className="overflow-y-auto flex-1 p-6">
-              <div className="space-y-6">
-                {comments.map((comment) => (
-                  <motion.div
-                    key={comment.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex gap-3"
-                  >
-                    <Avatar className="h-10 w-10 flex-shrink-0">
-                      <AvatarImage src={comment.author.avatar} />
-                      <AvatarFallback>{comment.author.initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{comment.author.name}</span>
-                        <span className="text-xs text-gray-500">{comment.date}</span>
+            <div
+              className="overflow-y-auto flex-1 p-6"
+              ref={commentsContainerRef}
+              onScroll={handleCommentsScroll}
+            >
+              {commentsLoading ? (
+                <div className="text-center text-gray-400">Loading comments…</div>
+              ) : (
+                <div className="space-y-6">
+                  {comments.map((comment) => (
+                    <motion.div
+                      key={comment.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex gap-3"
+                    >
+                      <Avatar className="h-10 w-10 flex-shrink-0">
+                        <AvatarImage src={"/placeholder.svg?height=40&width=40"} />
+                        <AvatarFallback>{comment.profile_id}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">User {comment.profile_id}</span>
+                          <span className="text-xs text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
+                        </div>
+                        <p className="text-gray-700 mb-2">{comment.content}</p>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <button
+                            className={`flex items-center gap-1 hover:text-gray-700 ${comment.liked ? 'text-blue-600' : ''}`}
+                            disabled={commentLikeLoading[comment.id]}
+                            onClick={() => handleCommentLike(comment)}
+                          >
+                            <ThumbsUp className={`h-3.5 w-3.5 ${comment.liked ? 'fill-blue-600 text-blue-600' : ''}`} />
+                            <span>{comment.likes ?? 0}</span>
+                          </button>
+                          <button className="hover:text-gray-700" onClick={() => setReplyTo(comment.id)}>Reply</button>
+                          <button
+                            className="hover:text-blue-700"
+                            onClick={() => handleToggleReplies(comment.id)}
+                          >
+                            {repliesState[comment.id]?.visible ? "Hide Replies" : `Show ${comment.replies_count} Replies`}
+                          </button>
+                        </div>
+                        {/* Reply form */}
+                        {replyTo === comment.id && (
+                          <form onSubmit={handleReplySubmit} className="mt-3 flex gap-2">
+                            <Textarea
+                              placeholder="Write a reply..."
+                              className="flex-1 resize-none"
+                              value={replyText}
+                              onChange={e => setReplyText(e.target.value)}
+                              rows={2}
+                            />
+                            <Button type="submit" className="rounded-full bg-black text-white hover:bg-gray-800" disabled={!replyText.trim()}>
+                              Reply
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={() => { setReplyTo(null); setReplyText("") }}>Cancel</Button>
+                          </form>
+                        )}
+                        {/* Render replies if loaded and visible */}
+                        {repliesState[comment.id]?.visible && (
+                          <div className="ml-8 mt-4 space-y-4">
+                            {repliesState[comment.id].loading ? (
+                              <div className="text-gray-400">Loading replies…</div>
+                            ) : (
+                              repliesState[comment.id].replies.length > 0 ? (
+                                repliesState[comment.id].replies.map((reply: any) => (
+                                  <div key={reply.id} className="flex gap-3">
+                                    <Avatar className="h-8 w-8 flex-shrink-0">
+                                      <AvatarImage src={"/placeholder.svg?height=40&width=40"} />
+                                      <AvatarFallback>{reply.profile_id}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-medium">User {reply.profile_id}</span>
+                                        <span className="text-xs text-gray-500">{new Date(reply.created_at).toLocaleString()}</span>
+                                      </div>
+                                      <p className="text-gray-700 mb-2">{reply.content}</p>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-gray-400">No replies yet.</div>
+                              )
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-gray-700 mb-2">{comment.text}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <button className="flex items-center gap-1 hover:text-gray-700">
-                          <ThumbsUp className="h-3.5 w-3.5" />
-                          <span>{comment.likes}</span>
-                        </button>
-                        <button className="hover:text-gray-700">Reply</button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+              {loadingMoreComments && (
+                <div className="text-center text-gray-400 mt-4">Loading more comments…</div>
+              )}
+              {!hasMoreComments && comments.length > 0 && (
+                <div className="text-center text-gray-400 mt-4">No more comments.</div>
+              )}
             </div>
           </motion.div>
         </div>

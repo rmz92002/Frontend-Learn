@@ -26,21 +26,19 @@ import { Button } from "@/components/ui/button"
 import { getCurrentUser } from "@/lib/api"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
-
-
-
-
+import { useCurrentUser } from "@/hooks/use-current-user"
+import { useLectureNotifications } from "@/hooks/use-lecture-notifications"
 
 const inter = Inter({ subsets: ["latin"] })
 
 interface UserData {
-  email: string
-  name: string
-  profile: {
+  email?: string
+  name?: string
+  profile?: {
+    id?: string | number
     avatar_url?: string
   }
 }
-
 
 export default function MainLayout({
   children,
@@ -49,8 +47,8 @@ export default function MainLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  // const isProfilePage = pathname === "/profile" || pathname?.startsWith("/profile/")
-  const isProfilePage = false
+  const isProfilePage = pathname === "/profile" || pathname?.startsWith("/profile/")
+  const isLectureLearnPage = pathname.includes("/lectures") 
   const { collapsed } = useSidebarState()
 
   const handleLogout = () => {
@@ -60,20 +58,19 @@ export default function MainLayout({
     window.location.href = "/login"
   }
 
-  const { data: userData, isLoading } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: ({ signal }) => getCurrentUser(signal),
-    retry: false,            // <-  ❗️no silent retries
-    staleTime: 60 * 60 * 1000,
-  })
+  // Fix userData typing for destructuring
+  const { data: userDataRaw, isLoading: userLoading } = useCurrentUser()
+  const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in userDataRaw)
+    ? userDataRaw as UserData
+    : undefined
+  const userId = userData?.profile?.id
+  const { lectures: lectureNotifications } = useLectureNotifications(userId !== undefined ? userId : null)
 
-  // const userData = {
-  //   email: "rmz92002@gmail.com",
-  //   name: "Rami Zahr",
-  //   profile: {
-  //     avatar_url: "https://avatars.githubusercontent.com/u/92002?v=4",
-  //   },
-  // }
+  // Find a lecture in progress (status: 'creating', 'processing', etc.)
+  const creatingLecture = lectureNotifications.find((l: any) =>
+  (l.status && l.status !== "ready") || (!l.finished && (l.progress ?? 0) < 100)
+)
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -118,6 +115,10 @@ export default function MainLayout({
   const dismissNotification = (notificationId: number) => {
     setNotifications((prev) => prev.filter((notification) => notification.id !== notificationId))
   }
+  const pendingCount = lectureNotifications.filter(
+    (l: any) => (l.status && l.status !== "ready") || (!l.finished && (l.progress ?? 0) < 100),
+  ).length
+  const isLoading = true
 
   return (
     <html lang="en">
@@ -126,10 +127,79 @@ export default function MainLayout({
           <Sidebar />
           <div
             className={cn(
-              "transition-all duration-300 ease-in-out min-h-screen bg-blue-50/30",
-              collapsed ? "ml-16" : "ml-64",
+              "transition-all duration-300 ease-in-out min-h-screen bg-blue-50/30 ml-16 ",
+              // collapsed ? "ml-16" : "ml-64",
             )}
           >
+            {/* Floating lecture creation progress notification (button + dropdown) */}
+            {!isProfilePage && creatingLecture && !isLectureLearnPage &&  (
+              <div className="fixed bottom-6 right-6 z-50">
+                <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                    {/* --------------------------------------------------
+                        Spinner button with dynamic ring
+                    -------------------------------------------------- */}
+                    <button
+  className="bg-white text-black px-6 py-2 rounded-full shadow-lg flex items-center gap-2 transition-all group loading-ring"
+  /* blue while loading, green when finished */
+  style={
+    {
+      // @ts-ignore – CSS custom prop
+      '--ring-color': lectureNotifications[0]?.progress < 100 ? '#3b82f6' : '#22c55e',
+    } as React.CSSProperties
+  }
+>
+  <Bell className="h-5 w-5 z-10" />
+  <span className="font-semibold z-10">{pendingCount}</span>
+  <span className="text-sm z-10">
+    lecture{pendingCount === 1 ? '' : 's'} creating
+  </span>
+</button>
+
+                  </DropdownMenuTrigger>
+
+                  
+                  <DropdownMenuContent className="w-80 p-0 rounded-xl mr-2 mb-2" align="end" sideOffset={8} side="top">
+                    <div className="p-3 border-b bg-blue-50/40">
+                      {lectureNotifications.filter(l => (l.status && l.status !== "ready") || (!l.finished && (l.progress ?? 0) < 100)).length > 0 ? (
+                        lectureNotifications.filter(l => (l.status && l.status !== "ready") || (!l.finished && (l.progress ?? 0) < 100)).map((creatingLecture: any) => (
+                          <div key={creatingLecture.lecture_id} className="mb-4 last:mb-0">
+                            <div className="flex gap-2 flex-col">
+                              <span className="font-semibold text-blue-700">Lecture creation in progress</span>
+                              <span className="text-xs text-gray-500">(ID: {creatingLecture.lecture_id})</span>
+                            </div>
+                            <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden mt-2">
+                              <div
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${creatingLecture.progress || 10}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-600 mt-1">
+                              Status: <span className="font-medium text-blue-700">{creatingLecture.status || 'creating'}</span>
+                              {creatingLecture.progress ? ` (${creatingLecture.progress}%)` : ''}
+                            </div>
+                            {creatingLecture.lecture_id && (
+                              <Link
+                                href={`/lectures/${creatingLecture.lecture_id}/learn?new=true`}
+                                className="text-xs text-blue-600 underline hover:text-blue-800 mt-1"
+                                
+                              >
+                                Preview lecture
+                              </Link>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex flex-col items-start w-full">
+                          <span className="font-semibold text-gray-500">No lecture creating right now</span>
+                          <span className="text-xs text-gray-400 mt-1">Start a new lecture to see progress here.</span>
+                        </div>
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
             {/* Profile picture in top right with dropdown - hidden on profile pages */}
             {!isProfilePage && (
               <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
@@ -244,55 +314,7 @@ export default function MainLayout({
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Profile Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="focus:outline-none">
-                    <Avatar className="h-12 w-12 border-2 border-white rounded-full shadow-sm hover:ring-2 hover:ring-gray-200 transition-all">
-                    <AvatarImage src={userData?.profile?.avatar_url || "/placeholder.svg"} alt="Profile" />
-                    <AvatarFallback>
-                      {userData?.name?.[0]?.toUpperCase() || "U"}
-                    </AvatarFallback>
-                    </Avatar>
-
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 mr-2 mt-1" align="end">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{userData?.name || "Loading..."}</p>
-                      <p className="text-xs text-gray-500 truncate">{userData?.email || "Loading..."}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      {/* <DropdownMenuItem asChild>
-                        <Link href="/profile" className="cursor-pointer">
-                          <User className="mr-2 h-4 w-4" />
-                          <span>Profile</span>
-                        </Link>
-                      </DropdownMenuItem> */}
-                      <DropdownMenuItem asChild>
-                        <Link href="/profile/settings" className="cursor-pointer">
-                          <Settings className="mr-2 h-4 w-4" />
-                          <span>Settings</span>
-                        </Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/help" className="cursor-pointer">
-                        <HelpCircle className="mr-2 h-4 w-4" />
-                        <span>Help & Support</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="text-red-500 cursor-pointer">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Logout</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                
               </div>
             )}
             <main >{children}</main>
