@@ -39,7 +39,7 @@ export default function SignupPage() {
 
     setIsLoading(true)
     try {
-      const res = await fetch("http://localhost:8000/auth/register", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         method: "POST",
         // Sending credentials includes cookies in the response.
         credentials: "include",
@@ -71,7 +71,7 @@ export default function SignupPage() {
   const handleGoogleSignup = async () => {
     setGoogleLoading(true)
     try {
-      const res = await fetch("http://localhost:8000/auth/google")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/google`)
       const { url } = await res.json()
       window.location.href = url
       

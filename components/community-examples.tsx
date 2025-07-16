@@ -23,7 +23,7 @@ function Iframe({ html }: { html: string }) {
                 loading="lazy"/>
 }
 
-export default function CommunityExamples() {
+export default function CommunityExamples({ userData }: any) {
   const [trending, setTrending] = useState<TrendingLecture[] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,14 +61,14 @@ export default function CommunityExamples() {
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {trending.map((item) => (
-           <Link href={`/lectures/${item.lecture_id}`} key={item.lecture_id}>
+        {trending.map((item: any) => (
+           <Link href={userData? `/lectures/${item.lecture_id}` : '/login'} key={item.lecture_id}>
         <Card className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 backdrop-blur-sm shadow-md transition-shadow hover:shadow-lg">
           <CardContent className="flex h-full flex-col gap-6 p-6">
 
             {/* --- tiny label row --- */}
             <div className="flex justify-between">
-              <Badge className="bg-blue-100 text-blue-800 group-hover:bg-blue-200">
+              <Badge className="bg-green-300 text-green-800 group-hover:bg-green-200">
                 {item.category}
               </Badge>
             </div>
@@ -80,7 +80,6 @@ export default function CommunityExamples() {
     {/* 2️⃣ render the lecture full-size and scale it down */}
               <Iframe
                 html={item.html_content}
-          
               />
             </div>
             </div>

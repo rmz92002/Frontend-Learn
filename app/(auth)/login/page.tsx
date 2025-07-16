@@ -24,7 +24,8 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const res = await fetch("http://localhost:8000/auth/login", {
+    
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -48,12 +49,11 @@ export default function LoginPage() {
     setGoogleLoading(true)
     try {
       // Google OAuth flow should set the cookie on success (server-side)
-      const response = await fetch("http://localhost:8000/auth/google", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/google`, {
         credentials: "include",
       })
       const { url } = await response.json()
       window.location.href = url
-    
     } catch (error) {
       console.error("Google login failed:", error)
       setGoogleLoading(false)
@@ -64,7 +64,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
       <div className="container px-4 py-8 mx-auto max-w-md">
         <Card className="rounded-bubble overflow-hidden">
-          <div className="bg-black text-white p-8">
+          <div className="bg-primary text-white p-8">
             <h1 className="text-2xl font-bold text-center">Welcome Back!</h1>
             <p className="text-gray-300 text-center mt-2">
               Log in to continue your learning journey
@@ -130,7 +130,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full rounded-full bg-black text-white hover:bg-gray-800"
+                className="w-full rounded-full text-white"
                 disabled={isLoading}
               >
                 {isLoading ? "Logging in..." : "Log In"}

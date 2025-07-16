@@ -359,7 +359,7 @@ export default function LectureDetailPage() {
   // const relatedLectures = getRelatedLectures(lecture)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b ">
+    <div className="min-h-screen bg-gradient-to-b h-full ">
       <div className="container px-4 py-8 mx-auto">
         <Link href="/lectures" className="flex items-center text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-5 h-5 mr-1" />
@@ -375,8 +375,8 @@ export default function LectureDetailPage() {
         </Button>
       </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm p-8 mb-8 shadow-md border border-gray-200">
-          <div className="flex flex-col md:flex-row gap-8">
+          <div className="bg-white rounded-xl shadow-sm p-8 mb-8 shadow-md border border-gray-200 h-full">
+          <div className="flex flex-col md:flex-row gap-8 ">
             <div className="flex-1">
               <h1 className="text-3xl font-bold mb-4">{lectureData.title}</h1>
               <p className="text-gray-600 mb-6">{lectureData.description}</p>
@@ -385,7 +385,7 @@ export default function LectureDetailPage() {
                 
                 <div className="flex items-center text-gray-600">
                   <User className="w-4 h-4 mr-2" />
-                  <span>{lectureData?.profile?.name}</span>
+                  <span>{lectureData?.profile?.name ?? "Anonymous"}</span>
                 </div>
                 <div className="flex items-center text-gray-600">
                   <Calendar className="w-4 h-4 mr-2" />
@@ -394,20 +394,23 @@ export default function LectureDetailPage() {
               </div>
 
               {lectureData?.course_id && (
-                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-800">This lecture is part of the course:</p>
-                  <Link href={`/courses/${lectureData?.course_id}`} className="font-medium text-blue-600 hover:underline">
-                    {lectureData?.course.name}
+                <div className="mb-6 p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-800">This lecture is part of the course:</p>
+                  <Link href={`/courses/${lectureData?.course_id}`} className="font-medium text-green-600 hover:underline">
+                {lectureData?.course?.name}
                   </Link>
                 </div>
               )}
-
+            <div className="mt-auto h-full">
               <Button
-                className="w-full rounded-full bg-gradient-to-r py-6 text-lg shadow-md hover:shadow-lg transition-all w-full rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                className="w-full rounded-full bg-gradient-to-r py-6 text-lg shadow-md hover:shadow-lg transition-all w-full rounded-full bg-green-500 text-white hover:bg-green-600"
                 onClick={() => router.push(`/lectures/${lectureId}/learn`)}
               >
                 Learn Now
               </Button>
+              </div>
+            
+              
             </div>
 
             <div className="md:w-1/3 flex flex-col">
@@ -416,7 +419,7 @@ export default function LectureDetailPage() {
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Category:</span>
-                    <Badge className="bg-blue-100 text-blue-800">{lectureData?.category}</Badge>
+                    <Badge className="bg-green-100 text-green-800">{lectureData?.category}</Badge>
                   </div>
                  
                   <div className="flex justify-between">
@@ -435,7 +438,7 @@ export default function LectureDetailPage() {
                   </div>
                   <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-blue-500 rounded-full"
+                      className="h-full bg-green-500 rounded-full"
                       style={{ width: `${lectureData?.progress || 0}%` }}
                     ></div>
                   </div>
@@ -449,11 +452,11 @@ export default function LectureDetailPage() {
                   >
                     <Button
                       variant="outline"
-                      className={`flex items-center w-full ${isSaved ? "bg-blue-50 border-blue-200" : ""}`}
+                      className={`flex items-center w-full ${isSaved ? "bg-green-50 border-green-200" : ""}`}
                       onClick={handleSaveClick}
                     >
                       <motion.div animate={{ scale: isSaved ? [1, 1.3, 1] : 1 }} transition={{ duration: 0.3 }}>
-                        <BookmarkPlus className={`mr-2 h-4 w-4 ${isSaved ? "fill-blue-500 text-blue-500" : ""}`} />
+                        <BookmarkPlus className={`mr-2 h-4 w-4 ${isSaved ? "fill-green-500 text-green-500" : ""}`} />
                       </motion.div>
                       {isSaved ? "Saved" : "Save"}
                     </Button>
@@ -500,7 +503,7 @@ export default function LectureDetailPage() {
                       onClick={() => setCommentsOpen(true)}
                     >
                       <MessageSquare className="mr-2 h-4 w-4" />
-                      Comment ({lectureData.comment_count || 0})
+                      Comment ({lectureData?.comment_count || 0})
                     </Button>
                   </motion.div>
                 </div>
@@ -556,7 +559,7 @@ export default function LectureDetailPage() {
       {/* Share Popup */}
       {sharePopupOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-green/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={closeSharePopup}
         >
           <motion.div
@@ -575,23 +578,23 @@ export default function LectureDetailPage() {
             </div>
 
             <div className="mb-6">
-              <p className="text-sm text-gray-500 mb-4">Share "{lectureData.title}" with your friends and colleagues</p>
+              <p className="text-sm text-gray-500 mb-4">Share "{lectureData?.title}" with your friends and colleagues</p>
 
               <div className="grid grid-cols-4 gap-3 mb-6">
                 <Button variant="outline" className="flex flex-col items-center p-3 h-auto">
-                  <Mail className="h-6 w-6 mb-1 text-gray-700" />
+                  <Mail className="h-6 w-6 mb-1 text-primary" />
                   <span className="text-xs">Email</span>
                 </Button>
                 <Button variant="outline" className="flex flex-col items-center p-3 h-auto">
-                  <Twitter className="h-6 w-6 mb-1 text-blue-400" />
+                  <Twitter className="h-6 w-6 mb-1 text-primary" />
                   <span className="text-xs">Twitter</span>
                 </Button>
                 <Button variant="outline" className="flex flex-col items-center p-3 h-auto">
-                  <Facebook className="h-6 w-6 mb-1 text-blue-600" />
+                  <Facebook className="h-6 w-6 mb-1 text-primary" />
                   <span className="text-xs">Facebook</span>
                 </Button>
                 <Button variant="outline" className="flex flex-col items-center p-3 h-auto">
-                  <Linkedin className="h-6 w-6 mb-1 text-blue-700" />
+                  <Linkedin className="h-6 w-6 mb-1 text-primary" />
                   <span className="text-xs">LinkedIn</span>
                 </Button>
               </div>
@@ -613,7 +616,7 @@ export default function LectureDetailPage() {
               </div>
             </div>
 
-            <Button className="w-full rounded-full bg-black text-white hover:bg-gray-800" onClick={closeSharePopup}>
+            <Button className="w-full rounded-full bg-primary text-white hover:bg-gray-800" onClick={closeSharePopup}>
               Done
             </Button>
           </motion.div>
@@ -622,7 +625,7 @@ export default function LectureDetailPage() {
       {/* Comments Section */}
       {commentsOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-green/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setCommentsOpen(false)}
         >
           <motion.div
@@ -663,7 +666,7 @@ export default function LectureDetailPage() {
                 <div className="flex justify-end">
                   <Button
                     type="submit"
-                    className="rounded-full bg-black text-white hover:bg-gray-800"
+                    className="rounded-full bg-primary text-white hover:bg-green-800"
                     disabled={!commentText.trim()}
                   >
                     Post Comment
@@ -695,17 +698,19 @@ export default function LectureDetailPage() {
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">User {comment.profile_id}</span>
+                          <span className="font-medium">
+                            {comment.profile_id ? `User ${comment.profile_id}` : "Anonymous"}
+                          </span>
                           <span className="text-xs text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
                         </div>
                         <p className="text-gray-700 mb-2">{comment.content}</p>
                         <div className="flex items-center gap-4 text-sm text-gray-500">
                           <button
-                            className={`flex items-center gap-1 hover:text-gray-700 ${comment.liked ? 'text-blue-600' : ''}`}
+                            className={`flex items-center gap-1 hover:text-gray-700 ${comment.liked ? 'text-green-600' : ''}`}
                             disabled={commentLikeLoading[comment.id]}
                             onClick={() => handleCommentLike(comment)}
                           >
-                            <ThumbsUp className={`h-3.5 w-3.5 ${comment.liked ? 'fill-blue-600 text-blue-600' : ''}`} />
+                            <ThumbsUp className={`h-3.5 w-3.5 ${comment.liked ? 'fill-green-600 text-green-600' : ''}`} />
                             <span>{comment.likes ?? 0}</span>
                           </button>
                           <button className="hover:text-gray-700" onClick={() => setReplyTo(comment.id)}>Reply</button>
@@ -713,7 +718,7 @@ export default function LectureDetailPage() {
                             className="hover:text-blue-700"
                             onClick={() => handleToggleReplies(comment.id)}
                           >
-                            {repliesState[comment.id]?.visible ? "Hide Replies" : `Show ${comment.replies_count} Replies`}
+                            {repliesState[comment.id]?.visible ? "Hide Replies" : `Show ${comment.replies_count? comment.replies_count : 0} Replies`}
                           </button>
                         </div>
                         {/* Reply form */}
@@ -726,7 +731,7 @@ export default function LectureDetailPage() {
                               onChange={e => setReplyText(e.target.value)}
                               rows={2}
                             />
-                            <Button type="submit" className="rounded-full bg-black text-white hover:bg-gray-800" disabled={!replyText.trim()}>
+                            <Button type="submit" className="rounded-full bg-primary text-white hover:bg-gray-800" disabled={!replyText.trim()}>
                               Reply
                             </Button>
                             <Button type="button" variant="ghost" onClick={() => { setReplyTo(null); setReplyText("") }}>Cancel</Button>
@@ -778,4 +783,3 @@ export default function LectureDetailPage() {
     </div>
   )
 }
-

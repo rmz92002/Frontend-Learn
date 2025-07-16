@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Code,
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import PopularLectures from "@/components/popular-lectures";
 import CommunityExamples from "@/components/community-examples";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 export default function HomePage() {
   const router = useRouter();
@@ -35,22 +36,43 @@ export default function HomePage() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting]   = useState(false);
+  const { data: userDataRaw, isLoading: userLoading } = useCurrentUser()
 
+  interface UserData {
+    email?: string
+    name?: string
+    profile?: {
+      id?: string | number
+      avatar_url?: string
+    }
+  }
   /* ────────────────────────── helpers ────────────────────────── */
+const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in userDataRaw)
+    ? userDataRaw as UserData
+    : undefined
 
   /** Build FormData ➜ POST /lectures/start ➜ redirect */
   const handleCreateLecture = async () => {
     if (isSubmitting || !lectureQuery.trim()) return;
+    //  if (!userData) {
+    //   router.push('login')
+    //   return;
+    // }
     try {
-      setIsSubmitting(true);
 
+      setIsSubmitting(true);
       const form = new FormData();
       form.append("topic", lectureQuery.trim());
-      form.append("profile_id", "1");                 // TODO: real user ID
+      if (userData?.profile?.id !== undefined && userData.profile.id !== null) {
+         form.append("profile_id", String(userData.profile.id));
+      }
+
+          // TODO: real user ID
       if (selectedCourse) form.append("course", selectedCourse);
       selectedFiles.forEach(f => form.append("files", f, f.name));
+      
 
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + "/lectures/start", { method: "POST", body: form });
+      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + "/lectures/start", { method: "POST", body: form, credentials: 'include' });
       
       if (!res.ok) throw new Error(await res.text());
 
@@ -95,23 +117,13 @@ export default function HomePage() {
   ];
 
   const popularTopics = [
-    { icon: <Code className="w-6 h-6" />, label: "How to write a for loop in Python", bg: "bg-purple-100" },
-    { icon: <Globe className="w-6 h-6" />, label: "Causes of World War I", bg: "bg-green-100" },
-    { icon: <Calculator className="w-6 h-6" />, label: "The Pythagorean Theorem", bg: "bg-yellow-100" },
-    { icon: <Microscope className="w-6 h-6" />, label: "How photosynthesis works", bg: "bg-teal-100" },
-    { icon: <Music className="w-6 h-6" />, label: "Reading sheet music basics", bg: "bg-orange-100" },
-    { icon: <Camera className="w-6 h-6" />, label: "How to take a portrait photo", bg: "bg-pink-100" },
-    { icon: <Cpu className="w-6 h-6" />, label: "What is a neural network?", bg: "bg-red-100" },
-    {
-      icon: (
-        <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none">
-          <path d="M12 16a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="2" />
-          <path d="M3 12h1M12 3v1m8 8h1m-9 8v1m6.364-14.364l-.707.707M5.636 5.636l.707.707m-.707 10.607l.707-.707m10.607.707l-.707-.707" stroke="currentColor" strokeWidth="2" />
-        </svg>
-      ),
-      label: "Why do we dream?",
-      bg: "bg-blue-100",
-    },
+    { icon: <Code className="w-6 h-6" color="gray" />, label: "How to write a for loop in Python", bg: "bg-purple-100" },
+    { icon: <Globe className="w-6 h-6" color="gray" />, label: "Causes of World War I", bg: "bg-green-100" },
+    { icon: <Calculator className="w-6 h-6" color="gray"/>, label: "The Pythagorean Theorem", bg: "bg-yellow-100" },
+    { icon: <Microscope className="w-6 h-6" color="gray"/>, label: "How photosynthesis works", bg: "bg-teal-100" },
+    { icon: <Music className="w-6 h-6" color="gray" />, label: "Reading sheet music basics", bg: "bg-orange-100" },
+    { icon: <Cpu className="w-6 h-6" color="gray"/>, label: "What is a neural network?", bg: "bg-red-100" },
+    
   ];
 
   /* ────────────────────────── UI ─────────────────────────────── */
@@ -119,7 +131,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
     <div className="container px-4 pt-24 mx-auto max-w-4xl">
       <div className="flex flex-col items-center justify-center">
-        <h1 className="text-5xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
+        <h1 className="text-5xl font-bold text-center mb-12 text-primary">
           What do you want to learn?
         </h1>
         {selectedFiles.length > 0 && (
@@ -185,6 +197,7 @@ export default function HomePage() {
 
               {/* Actions */}
               <div className="flex gap-2 shrink-0">
+                
                 {/* File picker */}
                 <Button
                   variant="secondary"
@@ -206,7 +219,7 @@ export default function HomePage() {
                 {/* Submit */}
                 <Button
                   size="icon"
-                  className="rounded-xl h-10 w-10 p-0 flex items-center justify-center bg-gray-900 text-white hover:bg-gray-800 shadow-sm hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+                  className="rounded-xl h-10 w-10 p-0 flex items-center justify-center text-white shadow-sm hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
                   onClick={handleCreateLecture}
                 >
                   <ArrowUp className="h-5 w-5" />
@@ -221,18 +234,18 @@ export default function HomePage() {
           {popularTopics.map((topic, index) => (
             <Card
               key={index}
-              className="flex flex-row items-center gap-2 px-3 py-2 text-center cursor-pointer hover:shadow-lg transition-transform rounded-xl border border-gray-100 hover:border-gray-200 hover:scale-105 bg-white min-w-[180px] max-w-xs"
+              className="flex flex-row  bg-secondary items-center gap-2 px-3 py-2 text-center cursor-pointer hover:shadow-lg transition-transform rounded-xl border border-gray-100 hover:border-gray-200 hover:scale-105 min-w-[180px] max-w-xs"
               style={{ minHeight: 0 }}
               onClick={() => {
                 setLectureQuery(topic.label);
               }}
             >
               <div
-                className={`w-10 h-10 ${topic.bg} rounded-full flex items-center justify-center`}
+                className={`w-10 h-10  rounded-full flex items-center justify-center`}
               >
                 {topic.icon}
               </div>
-              <span className="font-medium text-xs md:text-sm leading-tight text-left whitespace-normal">{topic.label}</span>
+              <span className="font-medium text-xs md:text-sm leading-tight text-left whitespace-normal text-gray">{topic.label}</span>
             </Card>
           ))}
         </div>
@@ -241,8 +254,8 @@ export default function HomePage() {
       </div>
     </div>
     <div className="w-full max-w-6xl mx-auto mb-16">
-      <h2 className="text-xl mb-4 font-bold text-gray-800">From the Community</h2>
-      <CommunityExamples />
+      <h2 className="text-xl mb-4 font-bold text-gray">From the Community</h2>
+      <PopularLectures userData={userData} />
     </div>
   </div>
   );

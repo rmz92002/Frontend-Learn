@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState } from "react"
 
+function getClientIdCookie(): string | null {
+  if (typeof document === "undefined") return null;            // SSR safety
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("client_id="));
+  return match ? match.split("=")[1] : null;
+}
+
 export function useLectureNotifications(userId: string | number | null) {
+  const identifier = userId ?? getClientIdCookie();
   const [lectures, setLectures] = useState<any[]>([])
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    if (!userId) return
+    if (!identifier) return
 
-    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_API_WS_URL || "ws://localhost:8000"}/notifications/ws/${userId}`)
+    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_API_WS_URL || "ws://localhost:8000"}/notifications/ws/${identifier}`)
     wsRef.current = ws
 
     ws.onmessage = (event) => {
@@ -33,7 +42,7 @@ export function useLectureNotifications(userId: string | number | null) {
     return () => {
       ws.close()
     }
-  }, [userId])
+  }, [identifier])
 
   // Optionally, provide a function to send a ping/request
   const ping = () => {

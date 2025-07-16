@@ -7,9 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Search, Clock, BookOpen, Calendar, X, Heart, MessageSquare, Share2 } from "lucide-react"
 import Link from "next/link"
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getTrendingLectures, getPopularLectures, TrendingLecture, searchLecturesSemantic } from "@/lib/api"
 
 // Color mapping for progress bars
@@ -248,7 +245,7 @@ export default function CommunityPage() {
                   variant={selectedCategories.includes(category) ? "default" : "outline"}
                   className={`cursor-pointer ${
                     selectedCategories.includes(category)
-                      ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                      ? "bg-green-100 text-green-800 hover:bg-green-200"
                       : "hover:bg-gray-100"
                   }`}
                   onClick={() => toggleCategory(category)}
@@ -304,7 +301,7 @@ export default function CommunityPage() {
                 >
                   <CardContent className="flex h-full flex-col gap-6 p-6">
                     <div className="flex justify-between">
-                      <Badge className="bg-blue-100 text-blue-800 group-hover:bg-blue-200">
+                      <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
                         {item.category}
                       </Badge>
                     </div>
@@ -387,7 +384,7 @@ export default function CommunityPage() {
 
           {/* --- tiny label row --- */}
           <div className="flex justify-between">
-            <Badge className="bg-blue-100 text-blue-800 group-hover:bg-blue-200">
+            <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
               {item.category}
             </Badge>
           </div>
@@ -399,9 +396,6 @@ export default function CommunityPage() {
   {/* 2️⃣ render the lecture full-size and scale it down */}
             <Iframe
               html={item.html_content}
-            
-              
-              
             />
           </div>
           </div>
@@ -471,7 +465,7 @@ export default function CommunityPage() {
                     >
                       <CardContent className="flex h-full flex-col gap-6 p-6">
                         <div className="flex justify-between">
-                          <Badge className="bg-blue-100 text-blue-800 group-hover:bg-blue-200">
+                          <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
                             {item.category}
                           </Badge>
                         </div>

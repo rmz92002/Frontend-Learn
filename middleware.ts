@@ -18,9 +18,36 @@ async function validateJWT(token: string): Promise<JWTPayload | null> {
 }
 /* ────────────────────────────────────────────────────────────── */
 
+/* tiny helper to ensure every visitor has a stable client_id cookie */
+function ensureClientId(resp: NextResponse, req: NextRequest): NextResponse {
+  // Only for anonymous users (no access_token)
+  if (!req.cookies.get("access_token")) {
+    let cid = req.cookies.get("client_id")?.value
+    if (!cid) {
+      cid = crypto.randomUUID()
+      resp.cookies.set({
+        name: "client_id",
+        value: cid,
+        path: "/",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+      })
+    }
+  }
+  return resp
+}
+
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get("access_token")?.value
   const { pathname } = req.nextUrl
+
+  // Handle logout: if the user visits /logout, delete the
+  // access_token cookie and redirect to the login page.
+  if (pathname.startsWith("/logout")) {
+    const response = NextResponse.redirect(new URL("/login", req.url))
+    response.cookies.delete("access_token")
+    return ensureClientId(response, req)
+  }
 
   // pages that *don’t* need auth
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup")
@@ -28,21 +55,15 @@ export async function middleware(req: NextRequest) {
   // validate JWT (returns null if missing or bad)
   const jwtPayload = token ? await validateJWT(token) : null
 
-  console.log("JWT token:", token)
-
 
   /* ---------- already logged in, hitting /login? -> home ---------- */
   if (isAuthPage && jwtPayload) {
-    return NextResponse.redirect(new URL("/", req.url))
+    return ensureClientId(NextResponse.redirect(new URL("/", req.url)), req)
   }
 
-  /* ---------- protected route, but no valid token? -> /login ------ */
-  if (!isAuthPage && !jwtPayload) {
-    return NextResponse.redirect(new URL("/login", req.url))
-  }
 
   /* ---------- all good, let the request pass through -------------- */
-  return NextResponse.next()
+  return ensureClientId(NextResponse.next(), req)
 }
 
 /* matcher excludes static files & /api routes */

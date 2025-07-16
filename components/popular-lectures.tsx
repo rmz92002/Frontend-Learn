@@ -11,7 +11,9 @@ function formatDate(dateString: string) {
   return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-export default function PopularLectures() {
+
+
+export default function PopularLectures({ userData }: { userData: any }) {
   const [popular, setPopular] = useState<TrendingLecture[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -84,11 +86,11 @@ export default function PopularLectures() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {popular.map((item) => (
-        <Link href={`/lectures/${item.lecture_id}`} key={item.lecture_id}>
+        <Link href={userData? `/lectures/${item.lecture_id}` : '/login'} key={item.lecture_id}>
           <Card className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 backdrop-blur-sm shadow-md transition-shadow hover:shadow-lg">
             <CardContent className="flex h-full flex-col gap-6 p-6">
               <div className="flex justify-between">
-                <Badge className="bg-blue-100 text-blue-800 group-hover:bg-blue-200">
+                <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
                   {item.category}
                 </Badge>
               </div>
@@ -118,7 +120,7 @@ export default function PopularLectures() {
           </Card>
         </Link>
       ))}
-      {/* Sentinel for infinite scroll */}
+      
       <div
         ref={loadMoreRef}
         className="col-span-full text-center py-4 text-gray-400"
@@ -131,7 +133,7 @@ export default function PopularLectures() {
       </div>
       <div className="w-full flex justify-center mt-8">
         <Link href="/community">
-          <Button className="rounded-full px-8 py-2 text-base font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow">
+          <Button className="rounded-full px-8 py-2 text-base font-semibold bg-green-600 text-white hover:bg-blue-700 shadow">
             View more community lectures
           </Button>
         </Link>

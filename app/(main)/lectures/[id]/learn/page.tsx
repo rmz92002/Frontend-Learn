@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { streamLecture, getCurrentUser, chatWithLecture } from "@/lib/api"    // helper imported here
 import { useCurrentUser } from "@/hooks/use-current-user"
+import { useToast } from "@/components/ui/use-toast"
 // NEW: Import motion from framer-motion
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -33,6 +34,7 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { toast } = useToast();
 
   // Auto-scroll to the latest message
   useEffect(() => {
@@ -52,26 +54,70 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
     setInputValue('')
     setIsLoading(true)
 
+    let botMsgId = Date.now() + 1;
+    let answer = '';
+    // setMessages(prev => [
+    //   ...prev,
+    //   { id: botMsgId, sender: 'bot', text: '' }
+    // ])
+
     try {
-      // Call backend AI chat
-      const res = await chatWithLecture(lectureId, currentSection, userMessage.text)
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: 'bot',
-          text: res.answer || 'Sorry, I could not find an answer.',
-        },
-      ])
+      await chatWithLecture(
+        lectureId,
+        currentSection,
+        userMessage.text,
+        (data) => {
+          if (data.answer !== undefined) {
+            answer = data.answer;
+            setMessages(prev => prev.map(m =>
+              m.id === botMsgId ? { ...m, text: answer } : m
+            ))
+          }
+          if (data.slide_update) {
+            // If slide update is in-progress
+            if (data.slide_update.new_html === "updating") {
+              // Show a loading toast
+              if (toast) {
+                toast({
+ title: 'Updating slide...',
+ description: 'AI is updating the slide. Hang tight!',
+                  variant: 'default', // Changed from 'loading' to 'default'
+                })
+              }
+              // Add a chat message with an updating indicator
+              setMessages(prev => [
+                ...prev,
+                {
+                  id: Date.now() + 2,
+                  sender: 'bot',
+                  text: '🔄 Slide is updating...'
+                },
+              ])
+            } else {
+              // Slide update completed
+              if (toast) {
+                toast({
+                  title: 'Slide updated!',
+                  description: 'Slide content was improved and updated by AI. Refresh to see changes.',
+                  variant: 'default',
+                });
+              }
+              setMessages(prev => [
+                ...prev,
+                {
+                  id: Date.now() + 2,
+                  sender: 'bot',
+                  text: '✅ Slide content was improved and updated! Refresh to see changes.',
+                },
+              ])
+            }
+          }
+        }
+      )
     } catch (err: any) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: 'bot',
-          text: 'Sorry, there was an error contacting the AI.',
-        },
-      ])
+      setMessages(prev => prev.map(m =>
+        m.id === botMsgId ? { ...m, text: 'Sorry, there was an error contacting the AI.' } : m
+      ))
     } finally {
       setIsLoading(false)
     }
@@ -109,7 +155,7 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
       transition: { duration: 0.2 },
     },
     closed: {
-      rotate: 0, // Or maybe a slight rotation on open?
+      rotate: 0,
       scale: 1,
       opacity: 1,
       transition: { duration: 0.2 },
@@ -379,31 +425,38 @@ const nextDisabled =
   /* ------------------------------------------------------------------ */
   useEffect(() => {
     if (isNewlyCreated) return;
-    if (!userDataRaw || userLoading) return;
-    const profileId = getProfileId(userDataRaw);
-    if (!profileId) return;
     if (lecturePages[currentSection]) return;
+
     const controller = new AbortController();
-    streamLecture(id, { isNew: false, page: currentSection, profileId }, controller.signal)
+
+    // Build request params: include profileId only if we have one
+    const params: { isNew: boolean; page?: number | undefined; profileId?: number | undefined; } = { isNew: false, page: currentSection };
+    const profileId = getProfileId(userDataRaw);
+    if (profileId) params.profileId = profileId;
+
+    streamLecture(id, params, controller.signal)
       .then(res =>
         readSSE(res, evt => {
           console.log(evt);
           if (evt.status === "html_complete") {
-            if (evt.index == 0) {
-              setTotalSections(evt.length)
+            if (evt.index === 0) {
+              setTotalSections(evt.length);
             }
             setLecturePages(p => {
               const copy = [...p];
               copy[evt.index] = evt.html;
               return copy;
             });
-            setAvailableSections(p => [...p, evt.index]);
+            setAvailableSections(p =>
+              p.includes(evt.index) ? p : [...p, evt.index]
+            );
           }
         })
       )
       .catch(console.error);
+
     return () => controller.abort();
-  }, [id, currentSection, isNewlyCreated, lecturePages, userDataRaw, userLoading]);
+  }, [id, currentSection, isNewlyCreated, lecturePages, userDataRaw]);
 
   /* ------------------------------------------------------------------ */
   /* Navigation helpers (unchanged)                                     */
@@ -429,7 +482,7 @@ const nextDisabled =
       {/* progress bar */}
       <div className="h-2 bg-gray-100 relative">
         <div
-          className="h-full bg-gray-500"
+          className="h-full bg-primary"
           style={{ width: `${((currentSection + 1) / Math.max(totalSections, 1)) * 100}%` }}
         />
         {isGeneratingContent && (
@@ -477,7 +530,7 @@ const nextDisabled =
       ) : (
         <Button
           onClick={goNext}
-          className="bg-black text-white absolute right-4 bottom-4 w-32"
+          className="bg-primary text-white absolute right-4 bottom-4 w-32"
           disabled={nextDisabled}
         >
           Next <ChevronLeft className="h-4 w-4 ml-2 rotate-180" />

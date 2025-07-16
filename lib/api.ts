@@ -1,5 +1,5 @@
 export async function getCurrentUser(signal?: AbortSignal) {
-  const res = await fetch("http://localhost:8000/auth/me", {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
     signal,
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -15,6 +15,36 @@ export async function getCurrentUser(signal?: AbortSignal) {
   }
 
   return res.json() 
+}
+
+/**
+ * Fetch how many free‑tier lecture generations this anonymous visitor
+ * still has available. Relies on the `client_id` cookie automatically
+ * sent with `credentials:"include"`.
+ *
+ * Example response:
+ *   { "remaining_generations": 3 }
+ */
+export async function getRemainingGenerations(
+  signal?: AbortSignal
+): Promise<{ remaining_generations: number }> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/lectures/generations_left`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      signal,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch remaining generations: ${response.status}`
+    );
+  }
+
+  return response.json();
 }
 
   // get lecutre
@@ -55,7 +85,9 @@ export async function streamLecture(
 
   if (!opts.isNew && opts.page !== undefined) {
     url.searchParams.set("page", String(opts.page));
-    url.searchParams.set("profile_id", String(opts.profileId|| 1)); // Default to profile_id 1 if not provided
+  }
+  if (typeof opts.profileId === "number") {
+    url.searchParams.set("profile_id", String(opts.profileId));
   }
 
   return fetch(url.toString(), {
@@ -71,7 +103,7 @@ export async function streamLecture(
   // get settings 
 
   export async function getSettingsUser(signal?: AbortSignal) {
-    const response = await fetch('http://localhost:8000/profiles/me', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profiles/me`, {
       signal,
       credentials: 'include',
       headers: {
@@ -102,7 +134,7 @@ export async function updateSettingsUser(
     }>,
     signal?: AbortSignal
   ) {
-    const response = await fetch('http://localhost:8000/profiles/me', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profiles/me`, {
       method: 'PUT',
       signal,
       credentials: 'include',
@@ -122,6 +154,13 @@ export async function updateSettingsUser(
 
 
 export interface LectureInProgress {
+  liked: boolean
+  likes: number
+  saved: boolean
+  profile: any
+  comment_count: number
+  course: any
+  course_id: any
   title: string;
   description?: string;
   progress: number;
@@ -239,14 +278,18 @@ export async function saveLecture(
   return response.json();
 }
 
+
+
 export async function getSavedLectures(
-  profileId: number,
+  profileId?: number | null,
   page: number = 1,
   pageSize: number = 10,
   signal?: AbortSignal
 ) {
   const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/lectures/saved`);
-  url.searchParams.set('profile_id', String(profileId));
+  if (typeof profileId === "number") {
+    url.searchParams.set("profile_id", String(profileId));
+  }
   url.searchParams.set('page', String(page));
   url.searchParams.set('page_size', String(pageSize));
 
@@ -382,6 +425,7 @@ export async function likeComment(
 }
 
 export interface TrendingLecture {
+  html_content: string
   title: string;
   description?: string;
   date: string;
@@ -455,13 +499,15 @@ export async function searchLecturesSemantic(
 }
 
 export async function getRecentlyViewedLectures(
-  profileId: number,
+  profileId?: number | null,
   page: number = 1,
   pageSize: number = 12,
   signal?: AbortSignal
 ): Promise<LectureInProgress[]> {
   const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/lectures/recently_viewed`);
-  url.searchParams.set('profile_id', String(profileId));
+  if (typeof profileId === "number") {
+    url.searchParams.set("profile_id", String(profileId));
+  }
   url.searchParams.set('page', String(page));
   url.searchParams.set('page_size', String(pageSize));
   const response = await fetch(url.toString(), {
@@ -482,8 +528,9 @@ export async function chatWithLecture(
   lectureId: string,
   slideIndex: number,
   question: string,
+  onStream?: (data: { answer?: string; slide_update?: { slide_index: number; new_html: string | null } }) => void,
   signal?: AbortSignal
-): Promise<{ answer: string }> {
+): Promise<string> {
   const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/lectures/${lectureId}/chat/${slideIndex}`);
   const response = await fetch(url.toString(), {
     method: 'POST',
@@ -497,6 +544,48 @@ export async function chatWithLecture(
   if (!response.ok) {
     throw new Error(`Failed to get chat answer: ${response.status}`);
   }
-  return response.json();
-}
 
+  // Streaming response handling
+  if (onStream) {
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let answer = '';
+    let buffer = '';
+    while (reader) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // Handle event:slide_update
+      let eventIdx;
+      while ((eventIdx = buffer.indexOf('event:slide_update')) !== -1) {
+        const dataIdx = buffer.indexOf('data:', eventIdx);
+        const endIdx = buffer.indexOf('\n\n', dataIdx);
+        if (dataIdx !== -1 && endIdx !== -1) {
+          const jsonStr = buffer.slice(dataIdx + 5, endIdx).trim();
+          try {
+            const slide_update = JSON.parse(jsonStr);
+            onStream({ slide_update });
+          } catch {}
+          buffer = buffer.slice(endIdx + 2);
+        } else {
+          break;
+        }
+      }
+      // Stream normal text
+      const parts = buffer.split('event:slide_update');
+      if (parts.length > 1) {
+        answer += parts[0];
+        onStream({ answer: answer });
+        buffer = buffer.slice(parts[0].length);
+      } else {
+        answer += buffer;
+        onStream({ answer });
+        buffer = '';
+      }
+    }
+    return answer;
+  } else {
+    // If not streaming, just return the full text
+    return response.text();
+  }
+}
