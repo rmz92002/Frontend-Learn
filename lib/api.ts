@@ -17,6 +17,8 @@ export async function getCurrentUser(signal?: AbortSignal) {
   return res.json() 
 }
 
+
+
 /**
  * Fetch how many free‑tier lecture generations this anonymous visitor
  * still has available. Relies on the `client_id` cookie automatically
@@ -588,4 +590,83 @@ export async function chatWithLecture(
     // If not streaming, just return the full text
     return response.text();
   }
+}
+
+// Update subscription plan (upgrade/downgrade)
+export async function updateSubscriptionPlan(
+  subscriptionId: string,
+  newPriceId: string,
+  signal?: AbortSignal
+): Promise<{ status: string; message: string; subscription: any }> {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stripe/update-subscription`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    signal,
+    body: JSON.stringify({
+      subscription_id: subscriptionId,
+      new_price_id: newPriceId,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update subscription: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+
+// Cancel an active Stripe subscription
+export async function cancelSubscription(
+  subscriptionId: string,
+  signal?: AbortSignal
+): Promise<{ status: string; message: string; subscription: any }> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/stripe/cancel-subscription`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal,
+      body: JSON.stringify({ subscription_id: subscriptionId }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to cancel subscription: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// Create a Stripe Billing Portal session so the user can manage or cancel their subscription
+export async function openCustomerPortal(
+  customerId: string,
+  signal?: AbortSignal
+): Promise<{ url: string }> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/stripe/create-customer-portal`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal,
+      body: JSON.stringify({ customer_id: customerId }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to create customer portal session: ${response.status}`
+    );
+  }
+
+  return response.json();
 }

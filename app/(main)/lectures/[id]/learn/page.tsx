@@ -494,7 +494,7 @@ const nextDisabled =
       </div>
 
       {/* slide area */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto p-4">
         {lecturePages[currentSection] ? (
           <Iframe html={lecturePages[currentSection]} />
         ) : (

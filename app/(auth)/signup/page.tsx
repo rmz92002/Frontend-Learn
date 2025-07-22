@@ -49,18 +49,14 @@ export default function SignupPage() {
         body: JSON.stringify({ name, email, password }),
       })
 
-      if (res.redirected) {
-        // If the backend has redirected (and set the cookie),
-        // you can follow the redirection by reading res.url or simply redirect locally.
-        router.push("/")
-      } else if (res.ok) {
-        // In case you return JSON instead of RedirectResponse,
-        // parse the token if necessary.
-        const data = await res.json()
-        // Optionally, save token if not using cookies:
-        localStorage.setItem("access_token", data.access_token)
-        router.push("/")
+      if (!res.ok) {
+      // Show toast / error state
+      return;
       }
+
+      // Cookie is now set by the server. The Next.js middleware can see it.
+      router.replace("/");         // cookie is already set
+
     } catch (error) {
       console.error("Signup failed:", error)
     } finally {
@@ -90,12 +86,12 @@ export default function SignupPage() {
 
       <div className="container px-4 py-8 mx-auto max-w-md">
         <Card className="rounded-bubble overflow-hidden animate-float">
-          <div className="bg-black text-white p-8 relative">
+          <div className="bg-primary text-white  p-8 relative">
             <div className="absolute top-4 right-4 w-3 h-3 rounded-full bg-dot-green opacity-30"></div>
             <div className="absolute bottom-4 left-8 w-2 h-2 rounded-full bg-dot-pink opacity-30"></div>
             <div className="absolute top-1/2 right-8 w-2 h-2 rounded-full bg-white opacity-30"></div>
 
-            <h1 className="text-2xl font-bold text-center">Join LearnAll</h1>
+            <h1 className="text-2xl font-bold text-center">Join Learnzy</h1>
             <p className="text-gray-300 text-center mt-2">Create an account to start learning</p>
           </div>
 

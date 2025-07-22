@@ -115,3 +115,295 @@ body {
   opacity: 0.4;
   animation: wave 4s linear infinite;
 }
+
+/* ==========================================================================
+   1. DUOLINGO-INSPIRED THEME -- GLOBAL VARIABLES & SETUP
+   ========================================================================== */
+
+:root {
+  /* Colors */
+  --duo-green: #58a700;
+  --duo-green-light: #e4f3d7;
+  --duo-red: #ea2b2b;
+  --duo-red-light: #fce8e8;
+  --duo-blue: #1cb0f6;
+  --duo-blue-light: #ddf4ff;
+  --duo-text: #4c4c4c;
+  --duo-gray-dark: #777777;
+  --duo-gray-medium: #afafaf;
+  --duo-gray-light: #e5e5e5;
+  --duo-white: #ffffff;
+  --duo-border-color: #e5e5e5;
+
+  /* Typography */
+  --duo-font-family: 'Nunito', sans-serif;
+
+  /* Sizing & Spacing */
+  --duo-border-radius: 16px;
+  --duo-border-width: 2px;
+  --duo-border-press-depth: 4px;
+  --duo-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+body {
+  font-family: var(--duo-font-family);
+  background-color: #f7f7f7; /* A very light gray background */
+  color: var(--duo-text);
+  line-height: 1.6;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+/* Create a main content column for the lecture */
+main {
+  width: 100%;
+  max-width: 720px;
+}
+
+
+/* ==========================================================================
+   2. SIMPLE STRUCTURAL ELEMENTS (x-title, x-card, etc.)
+   ========================================================================== */
+
+.x-title {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #3c3c3c;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.x-subtitle {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--duo-gray-dark);
+  border-bottom: 2px solid var(--duo-gray-light);
+  padding-bottom: 0.5rem;
+  margin: 2rem 0 1rem 0;
+}
+
+.x-descriot { /* Note: your JS has a typo "descriot" */
+  font-size: 1.1rem;
+  color: var(--duo-gray-dark);
+}
+
+.x-card {
+  background-color: var(--duo-white);
+  border-radius: var(--duo-border-radius);
+  border: 1px solid var(--duo-border-color);
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--duo-shadow);
+}
+
+
+/* ==========================================================================
+   3. QUIZ ELEMENT (x-quiz)
+   ========================================================================== */
+
+.quiz {
+  padding-top: 1rem; /* Spacing inside the card */
+}
+
+.quiz-q {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.quiz-opts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr; /* Default to single column */
+  gap: 0.75rem;
+}
+
+/* On wider screens, use a two-column layout for options */
+@media (min-width: 600px) {
+  .quiz-opts {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.quiz-opts button {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  background-color: var(--duo-white);
+  border: var(--duo-border-width) solid var(--duo-border-color);
+  border-bottom-width: var(--duo-border-press-depth);
+  border-radius: var(--duo-border-radius);
+  font-family: var(--duo-font-family);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--duo-gray-dark);
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.1s ease-in-out, border-color 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.quiz-opts button:hover {
+  background-color: var(--duo-blue-light);
+  border-color: var(--duo-blue);
+  color: var(--duo-blue);
+}
+
+.quiz-opts button:active {
+  transform: translateY(2px);
+  border-bottom-width: var(--duo-border-width);
+}
+
+.quiz-feedback {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: var(--duo-border-radius);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+  min-height: 1.5em; /* Prevent layout shift */
+}
+
+/* Your JS directly sets text. For better styling, you would modify the JS
+   to add a class like 'correct' or 'incorrect'. The CSS would be:
+   .quiz-feedback.correct { background: var(--duo-green-light); color: var(--duo-green); }
+   .quiz-feedback.incorrect { background: var(--duo-red-light); color: var(--duo-red); }
+*/
+
+
+/* ==========================================================================
+   4. DRAG-AND-DROP QUIZ (x-drag)
+   ========================================================================== */
+
+.drag-q {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.drag-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 1.5rem;
+}
+
+.drag-list li {
+  background-color: var(--duo-white);
+  border: var(--duo-border-width) dashed var(--duo-gray-medium);
+  border-radius: var(--duo-border-radius);
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  color: var(--duo-gray-dark);
+  cursor: grab;
+  transition: box-shadow 0.2s, background-color 0.2s;
+  user-select: none; /* Prevent text selection while dragging */
+}
+
+.drag-list li:active {
+  cursor: grabbing;
+}
+
+.drag-list li:hover {
+  border-color: var(--duo-blue);
+  color: var(--duo-blue);
+}
+
+.drag-check {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  background: var(--duo-green);
+  border: none;
+  border-bottom: var(--duo-border-press-depth) solid #4a8d00;
+  border-radius: var(--duo-border-radius);
+  font-family: var(--duo-font-family);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--duo-white);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: transform 0.1s ease-in-out, background-color 0.2s;
+}
+
+.drag-check:hover {
+  background-color: #63b900;
+}
+
+.drag-check:active {
+  transform: translateY(2px);
+  border-bottom-width: 0;
+}
+
+.drag-feedback {
+  margin-top: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  min-height: 1.5em; /* Prevent layout shift */
+}
+
+
+/* ==========================================================================
+   5. OTHER ELEMENTS (x-fold, x-code, x-check)
+   ========================================================================== */
+
+/* Foldable element */
+x-fold details {
+  background: #fdfdfd;
+  border: 1px solid var(--duo-border-color);
+  border-radius: var(--duo-border-radius);
+  margin: 1rem 0;
+}
+x-fold summary {
+  padding: 1rem 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline-color: var(--duo-blue);
+}
+x-fold details[open] > summary {
+  border-bottom: 1px solid var(--duo-border-color);
+}
+x-fold details > div { /* The <slot> content is inside a div */
+  padding: 0.5rem 1.5rem 1.5rem 1.5rem;
+}
+
+/* Code block */
+x-code {
+  position: relative;
+  display: block;
+  margin: 1.5rem 0;
+}
+
+x-code pre {
+  background: #2d2d2d;
+  color: #f1f1f1;
+  padding: 2rem 1.5rem 1.5rem 1.5rem; /* More padding at the top for the button */
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+x-code .copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #444;
+  color: white;
+  border: 1px solid #666;
+  border-radius: 8px;
+  padding: 0.25rem 0.75rem;
+  font-family: var(--duo-font-family);
+  cursor: pointer;
+}
+x-code .copy-btn:hover {
+  background: #555;
+}
+
+/* Checkmark element */
+x-check {
+  font-size: 1.5rem;
+}

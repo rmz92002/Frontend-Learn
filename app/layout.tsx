@@ -3,9 +3,7 @@ import "@/app/globals.css"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from './providers'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-
-const queryClient = new QueryClient()
+import Script from "next/script"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,11 +18,14 @@ export default async function RootLayout({
 }) {
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          {children}
+      <Script src="/lecture-kit.min.js" strategy="beforeInteractive" />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <Providers>
+            {children}
           </Providers>
+        </ThemeProvider>
       </body>
     </html>
   )

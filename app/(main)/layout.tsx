@@ -75,9 +75,8 @@ export default function MainLayout({
   
 
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class">
+    <>
+
           {/* Sidebar is always rendered */}
           <Sidebar />
           {userLoading ? (
@@ -180,8 +179,6 @@ Status: <span className="font-medium text-blue-700">{creatingLecture.status || '
             {/* Add padding to the top for logged-out users to prevent content from overlapping with buttons */}
             <main >{children}</main>
           </div>
-        </ThemeProvider>
-      </body>
-    </html>
+    </>
   )
 }

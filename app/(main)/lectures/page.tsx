@@ -124,43 +124,43 @@ export default function LecturesPage() {
     userId
   )
 
+  // Fake progress bump: +1% every 2 seconds for each creating lecture
+  const [optimisticProgress, setOptimisticProgress] = useState<Record<number, number>>({})
+
   // still-creating =
   const creatingLectures = (lectureNotifications ?? []).filter(
     (l: any) =>
       (l.status && l.status !== "Ready") ||
       (!l.finished && (l.progress ?? 0) < 100)
   )
-
-  // detect newly finished
-  const prevCreatingRef = useRef<any[]>([])
-  // useEffect(() => {
-  //   const finishedIds = prevCreatingRef.current
-  //     .filter(
-  //       (p) =>
-  //         !creatingLectures.some(
-  //           (c) => c.lecture_id === p.lecture_id
-  //         )
-  //     )
-  //     .map((p) => p.lecture_id)
-
-  //   prevCreatingRef.current = creatingLectures
-
-  //   // only inject when on “Recent”
-  //   if (finishedIds.length === 0 || showSaved || !userId) return
-
-  //   ;(async () => {
-  //     const fullLectures = await Promise.all(
-  //       finishedIds.map((id) => getLectureById(id))
-  //     )
-
-  //     setLectures((prev) => {
-  //       const deduped = fullLectures.filter(
-  //         (f) => !prev.some((p) => p.lecture_id === f.lecture_id)
-  //       )
-  //       return [...deduped, ...prev]
-  //     })
-  //   })()
-  // }, [creatingLectures, showSaved, userId])
+  // Whenever server pushes a new progress, sync up so we never lag behind
+ // Whenever server pushes a new progress, sync up so we never lag behind
+  useEffect(() => {
+    setOptimisticProgress((prev) => {
+      const next = { ...prev }
+      ;(lectureNotifications ?? []).forEach((l) => {
+        const real = l.progress ?? 0
+        if (real > (next[l.lecture_id] ?? 0)) {
+          next[l.lecture_id] = real
+        }
+      })
+      return next
+    })
+  }, [lectureNotifications])
+  // Every 2 seconds, bump each in-progress lecture up by 1% (max 99%)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setOptimisticProgress(prev => {
+        const next = { ...prev }
+        creatingLectures.forEach(l => {
+          const current = next[l.lecture_id] ?? l.progress ?? 0
+          if (current < 99) next[l.lecture_id] = current + 1
+        })
+        return next
+      })
+    }, 2000)
+    return () => clearInterval(id)
+  }, [creatingLectures])
 
   /*───────────────────────────────────────────────────────────
    * 7.  FILTER OUT duplicates (so loading + finished don’t clash)
@@ -206,7 +206,7 @@ export default function LecturesPage() {
                 ? "bg-green-600 text-white shadow"
                 : "text-gray-700 hover:bg-gray-200"
             }`}
-          >
+           >
             Saved
           </button>
         </div>
@@ -226,7 +226,7 @@ export default function LecturesPage() {
                   {lecture.category ?? "Creating"}
                 </Badge>
                 <span className="text-xs font-medium text-green-700">
-                  {lecture.progress ?? 10}%
+                  {(optimisticProgress[lecture.lecture_id] ?? lecture.progress ?? 10)}%
                 </span>
               </div>
 
@@ -244,7 +244,7 @@ export default function LecturesPage() {
                 <div className="h-2 rounded-full bg-green-100">
                   <div
                     className="h-full rounded-full bg-green-500 transition-all duration-700"
-                    style={{ width: `${lecture.progress ?? 10}%` }}
+                    style={{ width: `${(optimisticProgress[lecture.lecture_id] ?? lecture.progress ?? 10)}%` }}
                   />
                 </div>
                 <p className="mt-4 text-sm text-green-700">

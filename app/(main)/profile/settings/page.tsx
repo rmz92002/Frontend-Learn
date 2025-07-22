@@ -169,7 +169,7 @@ export default function SettingsPage() {
    * --------------------------------------------------*/
   const mutationOptions = {
     onSuccess: () => {
-      queryClient.invalidateQueries(["currentUserSettings"]);
+      queryClient.invalidateQueries({ queryKey: ["currentUserSettings"] });
       alert("Saved!");
     },
     onError: (err: Error) => alert(err.message),
@@ -195,7 +195,7 @@ export default function SettingsPage() {
     mutationFn: uploadAvatar,
     onSuccess: (data: any) => {
       setAvatar(data.avatar_url);
-      queryClient.invalidateQueries(["currentUserSettings"]);
+      queryClient.invalidateQueries({ queryKey: ["currentUserSettings"] });
     },
     onError: (err: Error) => alert(err.message),
   });
@@ -240,7 +240,7 @@ export default function SettingsPage() {
   const handlePasswordUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) return alert("Passwords don’t match");
-    passwordMutation.mutate({ currentPassword, newPassword });
+    passwordMutation.mutate({ old_password: currentPassword, new_password: newPassword });
   };
 
   /** --------------------------------------------------
@@ -325,9 +325,9 @@ export default function SettingsPage() {
       <Button
         variant="outline"
         onClick={() => document.getElementById("avatar-input")?.click()}
-        disabled={avatarMutation.isLoading}
+        disabled={avatarMutation.isPending}
       >
-        {avatarMutation.isLoading ? (
+        {avatarMutation.isPending ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <Upload className="mr-2 h-4 w-4" />
@@ -356,10 +356,10 @@ export default function SettingsPage() {
       <div className="flex justify-end pt-2">
         <Button 
           onClick={handleSaveSettings} 
-          disabled={profileMutation.isLoading} 
+          disabled={profileMutation.isPending} 
           className="rounded-lg"
         >
-          {profileMutation.isLoading ? "Saving…" : "Save Changes"}
+          {profileMutation.isPending ? "Saving…" : "Save Changes"}
         </Button>
       </div>
     </div>
@@ -396,7 +396,7 @@ export default function SettingsPage() {
                 />
               </div>
               <Button className="w-full md:w-auto" type="submit">
-                {passwordMutation.isLoading ? (
+                {passwordMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   "Update Password"
@@ -552,5 +552,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-
