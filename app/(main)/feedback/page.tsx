@@ -102,7 +102,7 @@ export default function FeedbackPage() {
 
           <Button
             type="submit"
-            className="w-full rounded-full bg-black text-white hover:bg-gray-800"
+            className="w-full rounded-full"
             disabled={!rating || isSubmitting}
           >
             {isSubmitting ? "Submitting..." : "Submit Feedback"}

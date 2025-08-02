@@ -1,0 +1,17 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+
+const DynamicComponent = () => {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1 }}
+    >     
+      <h1 className="text-2xl font-bold">Hello from Dynamic Component!</h1>
+      <p>This component was dynamically created using Babel in the browser.</p>
+      </motion.div>
+  );
+};
+
+export default DynamicComponent;

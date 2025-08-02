@@ -192,7 +192,7 @@ export default function SignupPage() {
 
               <Button
                 type="submit"
-                className="w-full rounded-full bg-black text-white hover:bg-gray-800"
+                className="w-full rounded-full"
                 disabled={isLoading || !agreeTerms || !passwordsMatch}
               >
                 {isLoading ? (

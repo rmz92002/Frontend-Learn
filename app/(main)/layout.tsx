@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { useSidebarState } from "@/hooks/use-sidebar-state"
 import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -46,7 +45,6 @@ export default function MainLayout({
   const pathname = usePathname()
   const isProfilePage = pathname === "/profile" || pathname?.startsWith("/profile/")
   const isLectureLearnPage = pathname.includes("/lectures")
-  const { collapsed } = useSidebarState()
 
   const handleLogout = () => {
     // In a real app, this would handle logout logic
@@ -169,14 +167,14 @@ Status: <span className="font-medium text-blue-700">{creatingLecture.status || '
             </>
           )}
 
-          <div
-            className={cn(
-              "transition-all duration-300 ease-in-out min-h-screen bg-blue-50/30 dark:bg-background",
-              // Adjust margin based on sidebar collapse state
-              collapsed ? "ml-64" : "ml-16"
-            )}
-          >
-            {/* Add padding to the top for logged-out users to prevent content from overlapping with buttons */}
+      <div
+        className={cn(
+          "transition-all duration-300 ease-in-out min-h-screen bg-blue-50/30 dark:bg-background",
+          // Adjust margin based on sidebar collapse state
+          "ml-16"
+        )}
+      >
+        {/* Add padding to the top for logged-out users to prevent content from overlapping with buttons */}
             <main >{children}</main>
           </div>
     </>

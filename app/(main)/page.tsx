@@ -167,37 +167,18 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
         <div className="w-full max-w-2xl mb-12">
           <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 transition-all hover:shadow-lg">
             {/* Lecture title input */}
+            <div className="flex flex-row jusftify-between items-center">
             <Input
               className="w-full py-4 px-4 text-lg border-0 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400"
-              placeholder="Ask v0 to build..."
+              placeholder="I want to learn about..."
               value={lectureQuery}
               onChange={(e) => setLectureQuery(e.target.value)}
               onKeyDown={handleKeyDown}
             />
 
-            {/* Controls row */}
-            <div className="flex items-start gap-3 mt-4 justify-between">
-              {/* Course selector */}
-              <Select onValueChange={(value) => setSelectedCourse(value)}>
-                <SelectTrigger className="w-56 shrink-0 border-0 bg-gray-100 text-gray-700 focus:ring-0 rounded-lg">
-                  <SelectValue placeholder="No course selected" />
-                </SelectTrigger>
-                <SelectContent>
-                  
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
-             
-              
-
-              {/* Actions */}
               <div className="flex gap-2 shrink-0">
-                
+      
                 {/* File picker */}
                 <Button
                   variant="secondary"
@@ -225,6 +206,32 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
                   <ArrowUp className="h-5 w-5" />
                 </Button>
               </div>
+
+            </div>
+            
+
+            {/* Controls row */}
+            <div className="flex items-start gap-3 mt-4 justify-between">
+              {/* Course selector */}
+              {/* <Select onValueChange={(value) => setSelectedCourse(value)}>
+                <SelectTrigger className="w-56 shrink-0 border-0 bg-gray-100 text-gray-700 focus:ring-0 rounded-lg">
+                  <SelectValue placeholder="No course selected" />
+                </SelectTrigger>
+                <SelectContent>
+                  
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select> */}
+
+             
+              
+
+              {/* Actions */}
+              
             </div>
           </div>
         </div>

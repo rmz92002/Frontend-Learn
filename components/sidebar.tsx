@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import { usePathname, useRouter } from "next/navigation" // ADDED useRouter
-import { useSidebarState } from "@/hooks/use-sidebar-state"
 import { motion } from "framer-motion"
 import { getRecentlyViewedLectures, getRemainingGenerations } from "@/lib/api"
 import { useCurrentUser } from "../hooks/use-current-user"
@@ -36,9 +35,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export default function Sidebar() {
-  const { collapsed, toggleSidebar } = useSidebarState()
   const pathname = usePathname()
-  const [isDropdownOpen, setDropdownOpen] = useState(false) // ADDED: State for dropdown visibility
+  const [isDropdownOpen, setDropdownOpen] = useState(false)
+  const [isHovered, setHovered] = useState(false)
 
   const { data: userDataRaw, isLoading: userLoading } = useCurrentUser();
   const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in userDataRaw)
@@ -77,8 +76,7 @@ export default function Sidebar() {
     collapsed: { width: 64, transition: { type: "tween", duration: 0.04 } },
   } as const
 
-  // CHANGED: Sidebar is open on hover OR if the profile dropdown is open
-  const isOpen = collapsed || isDropdownOpen;
+  const isOpen = isHovered || isDropdownOpen
 
   // ── Progress calculation for guest users ──
   const totalFreeGenerations = 3
@@ -91,12 +89,8 @@ export default function Sidebar() {
       initial={false}
       animate={isOpen ? "expanded" : "collapsed"}
       variants={sidebarVariants}
-      onMouseEnter={() => {
-        toggleSidebar()
-      }}
-      onMouseLeave={() => {
-          toggleSidebar()
-      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={cn(
         "fixed top-0 left-0 h-full bg-white border-r border-gray-100 shadow-sm z-50 flex flex-col transition-all duration-300 ease-in-out",
         isOpen ? "w-64" : "w-16",

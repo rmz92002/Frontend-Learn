@@ -29,6 +29,21 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+
+  webpack(config) {
+    config.module.rules.push({
+      /**
+       * `resourceQuery: /raw/`  →  only trigger on “?raw” imports,
+       *                            so the rest of your TS/JS stays untouched.
+       *
+       * `type: 'asset/source'`  →  Webpack 5’s built‑in replacement for
+       *                            the old raw‑loader (no extra deps needed).
+       */
+      resourceQuery: /raw/,     // <file>.tsx?raw   or   <file>.md?raw
+      type: 'asset/source',
+    });
+    return config;
+  },
 }
 
 if (userConfig) {

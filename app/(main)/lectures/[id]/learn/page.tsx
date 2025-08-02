@@ -16,6 +16,8 @@ import { useCurrentUser } from "@/hooks/use-current-user"
 import { useToast } from "@/components/ui/use-toast"
 // NEW: Import motion from framer-motion
 import { motion, AnimatePresence } from 'framer-motion'
+import JsxRenderer from "./JsxRenderer"
+import { Card } from "@/components/ui/card"
 
 /* ------------------------------------------------------------------ */
 /* A. The new BuddyChatbot component with "cool" Framer Motion animations */
@@ -79,10 +81,10 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
               // Show a loading toast
               if (toast) {
                 toast({
- title: 'Updating slide...',
- description: 'AI is updating the slide. Hang tight!',
-                  variant: 'default', // Changed from 'loading' to 'default'
-                })
+                  title: 'Updating slide...', 
+                  description: 'AI is updating the slide. Hang tight!', 
+                  variant: 'default',
+                });
               }
               // Add a chat message with an updating indicator
               setMessages(prev => [
@@ -263,7 +265,6 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
           animate="closed"
           variants={fabIconVariants}
         >
-          <span className="">Chat with Buddy</span>
           <span className="text-xl">🦜</span>
         </motion.button>
       )}
@@ -297,7 +298,8 @@ export default function LearningView() {
 
   /* ------------- state ------------------------- */
   const [currentSection, setCurrentSection] = useState(0)
-  const [lecturePages, setLecturePages] = useState<string[]>([])
+  const [showQuestion, setShowQuestion] = useState(false)
+  const [lectureSections, setLectureSections] = useState<Array<{html: string, jsx: string | null}>>([])
   const [availableSections, setAvailableSections] = useState<number[]>([])
   const [totalSections, setTotalSections] = useState(0)
   const [isGeneratingContent, setIsGeneratingContent] = useState(isNewlyCreated)
@@ -325,24 +327,27 @@ export default function LearningView() {
   /* ------------------------------------------------------------------ */
 
   function handleSSE(evt: any) {
-          if (evt.status === "outline_complete") {
-            setTotalSections(evt.outline.length);
-            setCourseTitle(evt.title);
-            setLectureStatus("Generating slides…");
-          }
-          if (evt.status === "html_complete") {
-            setLecturePages(p => {
-              const copy = [...p];
-              copy[evt.index] = evt.html;
-              return copy;
-            });
-            setAvailableSections(p =>
-  p.includes(evt.index) ? p : [...p, evt.index]
-);
-          }
-          if (evt.progress)      setGenerationProgress(evt.progress);
-          if (evt.status === "complete") setIsGeneratingContent(false);
-      }
+    if (evt.status === "outline_complete") {
+      setTotalSections(evt.outline.length);
+      setCourseTitle(evt.title);
+      setLectureStatus("Generating slides…");
+    }
+    if (evt.status === "code_complete" && evt.code) {
+      setLectureSections(prev => {
+        const copy = [...prev];
+        copy[evt.index] = {
+          html: evt.code.html || "",
+          jsx: evt.code.jsx || null,
+        };
+        return copy;
+      });
+      setAvailableSections(p =>
+        p.includes(evt.index) ? p : [...p, evt.index]
+      );
+    }
+    if (evt.progress) setGenerationProgress(evt.progress);
+    if (evt.status === "complete") setIsGeneratingContent(false);
+  }
 
 
   useEffect(() => {
@@ -425,26 +430,25 @@ const nextDisabled =
   /* ------------------------------------------------------------------ */
   useEffect(() => {
     if (isNewlyCreated) return;
-    if (lecturePages[currentSection]) return;
-
-    const controller = new AbortController();
-
-    // Build request params: include profileId only if we have one
-    const params: { isNew: boolean; page?: number | undefined; profileId?: number | undefined; } = { isNew: false, page: currentSection };
+    if (!userDataRaw || userLoading) return;
     const profileId = getProfileId(userDataRaw);
-    if (profileId) params.profileId = profileId;
-
-    streamLecture(id, params, controller.signal)
+    if (!profileId) return;
+    if (lectureSections[currentSection] && lectureSections[currentSection].html) return;
+    const controller = new AbortController();
+    streamLecture(id, { isNew: false, page: currentSection, profileId }, controller.signal)
       .then(res =>
         readSSE(res, evt => {
           console.log(evt);
-          if (evt.status === "html_complete") {
+          if (evt.status === "code_complete" && evt.code) {
             if (evt.index === 0) {
               setTotalSections(evt.length);
             }
-            setLecturePages(p => {
-              const copy = [...p];
-              copy[evt.index] = evt.html;
+            setLectureSections(prev => {
+              const copy = [...prev];
+              copy[evt.index] = {
+                html: evt.code.html || "",
+                jsx: evt.code.jsx || null,
+              };
               return copy;
             });
             setAvailableSections(p =>
@@ -454,18 +458,29 @@ const nextDisabled =
         })
       )
       .catch(console.error);
-
     return () => controller.abort();
-  }, [id, currentSection, isNewlyCreated, lecturePages, userDataRaw]);
+  }, [id, currentSection, isNewlyCreated, lectureSections, userDataRaw, userLoading]);
 
   /* ------------------------------------------------------------------ */
   /* Navigation helpers (unchanged)                                     */
   /* ------------------------------------------------------------------ */
-  const goNext = () =>
-    setCurrentSection(currentSection + 1)
-  const goPrev = () =>
+  const goNext = () => {
+    const currentSlide = lectureSections[currentSection]
+    if (currentSlide && currentSlide.jsx && !showQuestion) {
+      setShowQuestion(true)
+    } else {
+      setShowQuestion(false)
+      setCurrentSection(currentSection + 1)
+    }
+  }
+  const goPrev = () => {
+    setShowQuestion(false)
     setCurrentSection(currentSection - 1)
+  }
 
+  useEffect(() => {
+    setShowQuestion(false)
+  }, [currentSection])
   /* ------------------------------------------------------------------ */
   /* UI (simplified to core parts)                                    */
   /* ------------------------------------------------------------------ */
@@ -494,17 +509,36 @@ const nextDisabled =
       </div>
 
       {/* slide area */}
-      <main className="flex-1 overflow-auto p-4">
-        {lecturePages[currentSection] ? (
-          <Iframe html={lecturePages[currentSection]} />
+      {/* <Card
+                className="max-w-5xl min-h-[90%] w-full mx-auto rounded-3xl shadow-lg bg-white border-2 border-green-200/70 p-6 flex items-center justify-center 
+                          font-['Nunito','Poppins',sans-serif]"
+              > */}
+      <main className="flex-1 overflow-auto h-full p-6">
+          
+        {lectureSections[currentSection] && lectureSections[currentSection].html ? (
+          <div className="flex flex-col h-full">
+            {(lectureSections[currentSection].jsx && showQuestion)?
+           
+                <JsxRenderer
+                  jsx={lectureSections[currentSection].jsx}
+                  onContinue={goNext}
+                />
+              :
+              <div className="flex-grow">
+              <Iframe html={lectureSections[currentSection].html} />
+            </div>}
+
+        
+          </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center">
             <Loader2 className="h-10 w-10 animate-spin text-green-500" />
             <p className="mt-4 text-sm text-gray-600">{lectureStatus}</p>
           </div>
         )}
+        
       </main>
-
+{/* </Card> */}
       {/* nav buttons and chatbot */}
       
       <Button
