@@ -129,9 +129,9 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
   /* ────────────────────────── UI ─────────────────────────────── */
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-    <div className="container px-4 pt-24 mx-auto max-w-4xl">
+    <div className="container px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 mx-auto max-w-4xl">
       <div className="flex flex-col items-center justify-center">
-        <h1 className="text-5xl font-bold text-center mb-12 text-primary">
+        <h1 className="text-4xl sm:text-5xl font-bold text-center mb-8 sm:mb-12 text-primary">
           What do you want to learn?
         </h1>
         {selectedFiles.length > 0 && (
@@ -180,7 +180,7 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
               <div className="flex gap-2 shrink-0">
       
                 {/* File picker */}
-                <Button
+                {/* <Button
                   variant="secondary"
                   size="icon"
                   className="rounded-xl h-10 w-10 p-0 flex items-center justify-center shadow-sm hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
@@ -195,7 +195,7 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
                     onChange={handleFileChange}
                   />
                   <Paperclip className="h-5 w-5 text-gray-700" />
-                </Button>
+                </Button> */}
 
                 {/* Submit */}
                 <Button
@@ -237,12 +237,12 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
         </div>
 
         {/* Popular topics grid */}
-        <div className="flex flex-row flex-wrap gap-3 w-full max-w-4xl mb-10 justify-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 w-full max-w-4xl mb-10">
           {popularTopics.map((topic, index) => (
             <Card
               key={index}
-              className="flex flex-row  bg-secondary items-center gap-2 px-3 py-2 text-center cursor-pointer hover:shadow-lg transition-transform rounded-xl border border-gray-100 hover:border-gray-200 hover:scale-105 min-w-[180px] max-w-xs"
-              style={{ minHeight: 0 }}
+              className="flex flex-row bg-secondary items-center gap-2 px-3 py-2 text-center cursor-pointer hover:shadow-lg transition-transform rounded-xl border border-gray-100 hover:border-gray-200 hover:scale-105"
+              style={{ minHeight: 'auto' }}
               onClick={() => {
                 setLectureQuery(topic.label);
               }}
@@ -252,7 +252,7 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
               >
                 {topic.icon}
               </div>
-              <span className="font-medium text-xs md:text-sm leading-tight text-left whitespace-normal text-gray">{topic.label}</span>
+              <span className="font-medium text-xs md:text-sm leading-tight text-left whitespace-normal text-gray-700">{topic.label}</span>
             </Card>
           ))}
         </div>
@@ -260,8 +260,8 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
         {/* Community Examples (Popular Lectures) */}
       </div>
     </div>
-    <div className="w-full max-w-6xl mx-auto mb-16">
-      <h2 className="text-xl mb-4 font-bold text-gray">From the Community</h2>
+    <div className="w-full max-w-6xl mx-auto mb-16 px-4 sm:px-6 lg:px-8">
+      <h2 className="text-2xl sm:text-3xl mb-6 font-bold text-gray-800">From the Community</h2>
       <PopularLectures userData={userData} />
     </div>
   </div>

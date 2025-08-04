@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Search, Clock, BookOpen, Calendar, X, Heart, MessageSquare, Share2 } from "lucide-react"
 import Link from "next/link"
 import { getTrendingLectures, getPopularLectures, TrendingLecture, searchLecturesSemantic } from "@/lib/api"
+import CommunityLoading from "./loading"
 
 // Color mapping for progress bars
 const colorMap = {
@@ -287,7 +288,20 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {searchResults ? (
+      {searchLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-full overflow-hidden rounded-2xl bg-white/70 shadow-md animate-pulse">
+              <CardContent className="flex h-full flex-col gap-6 p-6">
+                <div className="h-6 w-32 bg-gray-200 rounded mb-2" />
+                <div className="h-5 w-40 bg-gray-100 rounded mb-2" />
+                <div className="h-4 w-56 bg-gray-100 rounded mb-2" />
+                <div className="h-4 w-24 bg-gray-100 rounded mb-2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : searchResults ? (
         // Search Results Section
         <div>
           <h2 className="text-2xl font-semibold mb-4 mt-8">Search Results</h2>
@@ -330,17 +344,6 @@ export default function CommunityPage() {
                   </CardContent>
                 </Card>
                 </Link>
-              ))
-            ) : searchLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <Card key={i} className="h-full overflow-hidden rounded-2xl bg-white/70 shadow-md animate-pulse">
-                  <CardContent className="flex h-full flex-col gap-6 p-6">
-                    <div className="h-6 w-32 bg-gray-200 rounded mb-2" />
-                    <div className="h-5 w-40 bg-gray-100 rounded mb-2" />
-                    <div className="h-4 w-56 bg-gray-100 rounded mb-2" />
-                    <div className="h-4 w-24 bg-gray-100 rounded mb-2" />
-                  </CardContent>
-                </Card>
               ))
             ) : (
               <div className="col-span-full text-center py-12">
@@ -519,4 +522,3 @@ export default function CommunityPage() {
     </div>
   )
 }
-

@@ -33,9 +33,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const isMobile = useIsMobile()
   const [isDropdownOpen, setDropdownOpen] = useState(false)
   const [isHovered, setHovered] = useState(false)
 
@@ -76,7 +78,7 @@ export default function Sidebar() {
     collapsed: { width: 64, transition: { type: "tween", duration: 0.04 } },
   } as const
 
-  const isOpen = isHovered || isDropdownOpen
+  const isOpen = !isMobile && (isHovered || isDropdownOpen)
 
   // ── Progress calculation for guest users ──
   const totalFreeGenerations = 3
@@ -89,8 +91,8 @@ export default function Sidebar() {
       initial={false}
       animate={isOpen ? "expanded" : "collapsed"}
       variants={sidebarVariants}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => !isMobile && setHovered(true)}
+      onMouseLeave={() => !isMobile && setHovered(false)}
       className={cn(
         "fixed top-0 left-0 h-full bg-white border-r border-gray-100 shadow-sm z-50 flex flex-col transition-all duration-300 ease-in-out",
         isOpen ? "w-64" : "w-16",

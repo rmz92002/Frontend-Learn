@@ -131,7 +131,7 @@ export default function PopularLectures({ userData }: { userData: any }) {
           ? "No more lectures."
           : null}
       </div>
-      <div className="w-full flex justify-center mt-8">
+      <div className="col-span-full w-full flex justify-center mt-8">
         <Link href="/community">
           <Button className="rounded-full px-8 py-2 text-base font-semibold bg-green-600 text-white hover:bg-blue-700 shadow">
             View more community lectures
