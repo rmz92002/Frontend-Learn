@@ -133,7 +133,7 @@ export default function TypeInAnswer({ children, answers, placeholder = "Type yo
               disabled={status === 'correct'}
               autoFocus
             />
-            {pointsAnimation && <div className="points-animation">+10</div>}
+            {/* {pointsAnimation && <div className="points-animation">+10</div>} */}
           </div>
 
           {status !== 'correct' && !showingAnswer && (

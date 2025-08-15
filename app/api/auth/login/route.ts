@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   
   // 2. Set cookie
   cookies().set({
-    name: 'session',
+    name: 'access_token',
     value: user.sessionToken,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

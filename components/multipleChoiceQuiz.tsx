@@ -130,7 +130,7 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
             {children}
           </h2>
 
-          {pointsAnimation && (
+          {/* {pointsAnimation && (
             <div
               key={pointsAnimation.key}
               className="points-animation"
@@ -142,7 +142,7 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
             >
               +10
             </div>
-          )}
+          )} */}
 
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {options.map(option => (

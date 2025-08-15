@@ -212,7 +212,7 @@ export default function Match({ children, pairs, onContinue }: DragAndMatchProps
           {children && <InternalTitle>{children}</InternalTitle>}
 
           {/* Render the points animation when state is set */}
-          {pointsAnimation && (
+          {/* {pointsAnimation && (
             <div
               key={pointsAnimation.id}
               className="points-animation"
@@ -224,7 +224,7 @@ export default function Match({ children, pairs, onContinue }: DragAndMatchProps
             >
               +10
             </div>
-          )}
+          )} */}
 
           <div className="duo-match-grid">
             {/* LEFT COLUMN (sources) */}

@@ -58,7 +58,7 @@ export async function middleware(req: NextRequest) {
 
   /* ---------- already logged in, hitting /login? -> home ---------- */
   if (isAuthPage && jwtPayload) {
-    return ensureClientId(NextResponse.redirect(new URL("/", req.url)), req)
+    return ensureClientId(NextResponse.redirect(new URL("/", req.url)), req);
   }
 
 
@@ -66,7 +66,7 @@ export async function middleware(req: NextRequest) {
   return ensureClientId(NextResponse.next(), req)
 }
 
-/* matcher excludes static files & /api routes */
+/* matcher excludes static files */
 export const config = {
-  matcher: "/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)",
+  matcher: "/((?!_next/static|_next/image|favicon.ico|.*\\.).*)",
 }

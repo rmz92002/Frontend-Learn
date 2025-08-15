@@ -259,7 +259,7 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
       {!isOpen && (
         <motion.button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-16 right-4 z-50 px-6 py-3 rounded-full shadow-lg bg-gradient-to-r from-green-400 to-blue-400 text-white font-semibold text-base flex items-center gap-2 hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-green-400"
+          className="fixed bottom-16 right-4 z-50 px-6 py-3 rounded-full shadow-lg bg-green-200 text-white font-semibold text-base flex items-center gap-2 hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-green-400"
           aria-label="Open AI Buddy Chatbot"
           animate="closed"
           variants={fabIconVariants}

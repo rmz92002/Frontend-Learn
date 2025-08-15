@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 
 export async function POST() {
-  cookies().delete('session')
+  cookies().delete('access_token')
   return Response.json({ success: true })
 }
