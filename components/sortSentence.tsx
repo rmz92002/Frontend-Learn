@@ -132,7 +132,7 @@ export default function SortTheSentence({ children, correctSentence, onContinue 
     } else if (sourceContainer === 'currentSentence' && isOverBank) {
         setCurrentSentence(prev => prev.filter(i => i.id !== activeItem.id));
         setWordBank(prev => [...prev, activeItem]);
-    } else if (sourceContainer === 'currentSentence' && isOverSentence && overContainerId) {
+    } else if (sourceContainer === 'currentSentence' && isOverSentence && overContainerId && over) {
         // Reorder within sentence
         const oldIndex = currentSentence.findIndex(i => i.id === active.id);
         const newIndex = currentSentence.findIndex(i => i.id === over.id);
@@ -196,6 +196,9 @@ export default function SortTheSentence({ children, correctSentence, onContinue 
                   <span className="icon">❌</span> {feedback}
                 </div>
               )}
+              <button className="footer-action-button" onClick={onContinue}>
+                  Continue
+                </button>
 
               {status === 'correct' ? (
                 <button className="footer-action-button" onClick={onContinue}>

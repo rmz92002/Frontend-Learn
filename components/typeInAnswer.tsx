@@ -1,105 +1,44 @@
 'use client';
 
 import React, { useState, useMemo, ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 // --- PROPS INTERFACE ---
 interface TypeInAnswerProps {
-  /** The question or prompt for the user. */
   children: ReactNode;
-  /**
-   * A pipe-delimited string of all acceptable answers.
-   * The first answer is considered the "primary" answer for feedback.
-   * Example: "The dog|the dog|The dog."
-   */
   answers: string;
-  /** Placeholder text for the input field. */
   placeholder?: string;
   onContinue?: () => void;
 }
 
-/* --- STYLES (CSS-in-JS) --- */
-const styles = `
-  :root {
-    --duo-color-green: #58cc02; --duo-color-green-light: #d7ffb8; --duo-color-green-dark: #58a700;
-    --duo-color-red: #ff4b4b; --duo-color-red-light: #ffdfe0; --duo-color-blue: #1cb0f6;
-    --duo-color-gray-light: #e5e5e5; --duo-color-gray-medium: #777777;
-    --duo-font-family: 'Nunito', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+// --- KEYFRAME STYLES ---
+const keyframeStyles = `
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
   }
-  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
   @keyframes float-up {
     0% { opacity: 1; transform: translateY(0); }
     100% { opacity: 0; transform: translateY(-60px); }
   }
   .points-animation {
     position: absolute;
-    color: var(--duo-color-green);
+    color: #58cc02; /* Green-500 */
     font-size: 1.75rem;
     font-weight: 800;
     animation: float-up 1s ease-out forwards;
     pointer-events: none;
     z-index: 10;
     left: 50%;
-    top: 0;
+    top: -32px;
     transform: translateX(-50%);
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
-  .duo-typing-question {
-    font-size: 3rem;
-    font-weight: 700;
-    color: #3c3c3c;
-    text-align: center;
-  }
-  .duo-typing-container { max-width: 1200px; min-height: 100vh; margin: 0 auto; font-family: var(--duo-font-family); border-radius: 0; border: none; display: flex; flex-direction: column;}
-  .duo-typing-content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 48px; padding-bottom: 150px; position: relative; width: 100%; box-sizing: border-box; }
-  
-  .duo-typing-input-wrapper {
-    margin-top: 2rem;
-  }
-  
-  .duo-typing-input {
-    width: 100%;
-    max-width: 800px;
-    padding: 24px;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--duo-color-gray-medium);
-    background-color: #ffffff;
-    border: 3px solid var(--duo-color-gray-light);
-    border-bottom-width: 6px;
-    border-radius: 16px;
-    text-align: center;
-    user-select: none;
-    transition: all 0.2s ease;
-  }
-  .duo-typing-input:hover:not(.disabled) { border-color: var(--duo-color-blue); }
-  .duo-typing-input:focus {
-    outline: none;
-    border-color: var(--duo-color-blue);
-  }
-  .duo-typing-input.correct {
-    border-color: var(--duo-color-green-dark);
-    background-color: var(--duo-color-green-light);
-    color: var(--duo-color-green-dark);
-  }
-  .duo-typing-input.incorrect {
-    border-color: var(--duo-color-red);
+  .shake-animation {
     animation: shake 0.4s ease-in-out;
   }
-  
-  /* Footer */
-  .duo-typing-footer { margin: 2.5rem auto 0 auto; display: block; padding: 14px 40px; font-size: 1rem; font-weight: 700; color: #ffffff; text-transform: uppercase; background-color: var(--duo-color-green); border: none; border-bottom: 4px solid var(--duo-color-green-dark); border-radius: 12px; cursor: pointer; }
-  .duo-typing-footer.correct-banner { background-color: var(--duo-color-green-light); border-top-color: var(--duo-color-green-dark); }
-  .duo-typing-footer.incorrect-banner { background-color: var(--duo-color-red-light); border-top-color: var(--duo-color-red); }
-  .feedback-message { display: flex; align-items: center; gap: 12px; font-size: 2rem; font-weight: 700; }
-  .feedback-message.correct-text { color: var(--duo-color-green-dark); }
-  .feedback-message.incorrect-text { color: var(--duo-color-red); }
-  .footer-action-button { margin: 3rem auto 0 auto; display: block; padding: 18px 50px; font-size: 1.25rem; font-weight: 700; color: #ffffff; text-transform: uppercase; background-color: var(--duo-color-green); border: none; border-bottom: 5px solid var(--duo-color-green-dark); border-radius: 16px; cursor: pointer; transition: filter 0.2s ease; }
-  .footer-action-button:hover:not(:disabled) { filter: brightness(1.1); }
-  .footer-action-button:disabled { background-color: var(--duo-color-gray-light); border-color: var(--duo-color-gray-medium); color: var(--duo-color-gray-medium); cursor: not-allowed; }
 `;
-
-// --- HELPER COMPONENTS ---
-const InternalTitle = ({ children }: { children: ReactNode }) => ( <h2 style={{ fontFamily: 'var(--duo-font-family)', fontWeight: 800, color: '#3c3c3c', fontSize: '1.75rem', textAlign: 'center', margin: 0 }}>{children}</h2> );
 
 // --- MAIN COMPONENT LOGIC ---
 type QuizStatus = 'idle' | 'correct' | 'incorrect';
@@ -107,11 +46,9 @@ type QuizStatus = 'idle' | 'correct' | 'incorrect';
 export default function TypeInAnswer({ children, answers, placeholder = "Type your answer...", onContinue }: TypeInAnswerProps) {
   const [inputValue, setInputValue] = useState('');
   const [status, setStatus] = useState<QuizStatus>('idle');
-  const [feedback, setFeedback] = useState<string | null>(null);
-  // Animation state: show +10 when correct
   const [pointsAnimation, setPointsAnimation] = useState<boolean>(false);
+  const [showingAnswer, setShowingAnswer] = useState(false);
 
-  // Memoize the parsed answers for performance
   const parsedAnswers = useMemo(() => {
     return answers.split('|').map(a => a.trim().toLowerCase());
   }, [answers]);
@@ -122,15 +59,10 @@ export default function TypeInAnswer({ children, answers, placeholder = "Type yo
     
     if (isCorrect) {
       setStatus('correct');
-      setFeedback('You are correct!');
-      // Trigger +10 animation
       setPointsAnimation(true);
       setTimeout(() => setPointsAnimation(false), 1000);
     } else {
       setStatus('incorrect');
-      // Show the first answer as the primary correct one
-      const primaryAnswer = answers.split('|')[0];
-      setFeedback(`Correct answer: ${primaryAnswer}`);
     }
   };
   
@@ -144,20 +76,48 @@ export default function TypeInAnswer({ children, answers, placeholder = "Type yo
     }
   };
 
-  const getInputClassName = () => {
-    if (status === 'correct') return 'duo-typing-input correct';
-    if (status === 'incorrect') return 'duo-typing-input incorrect';
-    return 'duo-typing-input';
+  const handleContinue = () => {
+    setShowingAnswer(false);
+    setInputValue('');
+    setStatus('idle');
+    if (onContinue) {
+      onContinue();
+    }
   };
+
+  const inputClassName = cn(
+    'w-full max-w-lg text-center text-xl sm:text-2xl font-bold p-4 sm:p-5 border-2 border-b-4 rounded-xl transition-all duration-200 bg-white',
+    'focus:outline-none focus:border-green-400 focus:ring-2 focus:ring-green-200',
+    'placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed',
+    {
+      'border-gray-200 text-gray-700': status === 'idle',
+      'border-green-500 bg-green-50 text-green-700 focus:border-green-500': status === 'correct',
+      'border-red-400 text-red-600 shake-animation': status === 'incorrect',
+    }
+  );
+
+  const actionButtonClass = cn(
+    'px-8 py-3 text-lg font-bold text-white uppercase rounded-xl border-b-4 transition-transform duration-200',
+    'disabled:bg-gray-300 disabled:border-gray-400 disabled:cursor-not-allowed',
+    {
+      'bg-green-500 border-green-700 hover:bg-green-600 active:scale-95': status === 'idle' || status === 'incorrect',
+      'bg-green-600 border-green-800 hover:bg-green-700 active:scale-95': status === 'correct',
+    }
+  );
 
   return (
     <>
-      <style>{styles}</style>
-      <div className="duo-typing-container">
-        <div className="duo-typing-content" style={{ position: 'relative' }}>
-          {children && <h2 className='duo-typing-question'>{children}</h2>}
+      <style>{keyframeStyles}</style>
+      <div className="flex flex-col justify-center items-center w-full min-h-screen bg-white p-4 sm:p-6">
+        <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
+          
+          {children && (
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-8 text-center break-words">
+              {children}
+            </h2>
+          )}
 
-          <div className="duo-typing-input-wrapper" style={{ position: 'relative' }}>
+          <div className="relative w-full flex justify-center">
             <input
               type="text"
               value={inputValue}
@@ -165,42 +125,70 @@ export default function TypeInAnswer({ children, answers, placeholder = "Type yo
                 setInputValue(e.target.value);
                 if (status === 'incorrect') {
                   setStatus('idle');
-                  setFeedback(null);
                 }
               }}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              className={getInputClassName()}
+              className={inputClassName}
               disabled={status === 'correct'}
               autoFocus
             />
-            {/* +10 points animation */}
-            {pointsAnimation && (
-              <div className="points-animation" style={{ top: '-32px' }}>
-                +10
-              </div>
-            )}
+            {pointsAnimation && <div className="points-animation">+10</div>}
           </div>
-          
-          {/* {status === 'correct' && (
-            <div className="feedback-message correct-text" style={{ marginTop: '2rem', fontSize: '2rem', fontWeight: 700, color: 'var(--duo-color-green-dark)' }}>
-              <span className="icon">✅</span> You are correct!
-            </div>
-          )} */}
-          
-          {(status === 'correct' || status === 'incorrect') ? (
-            <button className="footer-action-button" onClick={onContinue}>
-              Continue
-            </button>
-          ) : (
+
+          {status !== 'correct' && !showingAnswer && (
             <button
-              className="footer-action-button"
-              onClick={handleCheck}
-              disabled={!inputValue.trim()}
+              className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
+              onClick={() => {
+                setShowingAnswer(true);
+                setStatus('incorrect');
+              }}
+              type="button"
             >
-              Check
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              Show Answer
             </button>
           )}
+          {showingAnswer && (
+            <div className="mt-4 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-sm max-w-lg w-full">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800 mb-2">Correct Answer</h3>
+                  <div className="text-blue-700 font-medium text-lg">
+                    {answers.split('|').map((answer, index) => (
+                      <span key={index} className="inline-block bg-white px-3 py-1 rounded-full mr-2 mb-2 shadow-sm">
+                        {answer.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="mt-8 sm:mt-10">
+            {status === 'correct' || showingAnswer ? (
+              <button className={actionButtonClass} onClick={handleContinue}>
+                Continue
+              </button>
+            ) : (
+              <button
+                className={actionButtonClass}
+                onClick={handleCheck}
+                disabled={!inputValue.trim()}
+              >
+                Check
+              </button>
+            )}
+          </div>
+
         </div>
       </div>
     </>

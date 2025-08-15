@@ -36,7 +36,7 @@ export function useLectureNotifications(userId: string | number | null) {
 
     ws.onerror = (e) => {
       // Optionally handle error
-      console.error("WebSocket error:", e)
+      // console.error("WebSocket error:", e)
     }
 
     return () => {

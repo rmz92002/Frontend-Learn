@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useState, ReactNode, useMemo, useRef } from 'react';
+import { cn } from '@/lib/utils'; // Assuming you have a utility for classnames
 
 // --- PROPS INTERFACE ---
 interface QuizProps {
   children: ReactNode;
   answer: string;
-  distractors?: string; // e.g., "option1|option2|option3"
-  onContinue?: () => void; // Optional callback for when the user clicks "Continue"
+  distractors?: string | string[]; // e.g., "option1|option2|option3" or array of distractors
+  onContinue?: () => void;
 }
 
-// --- HELPER FUNCTION (outside component to prevent re-creation) ---
+// --- HELPER FUNCTION ---
 const shuffle = (arr: string[]) => {
   return arr
     .map(value => ({ value, sort: Math.random() }))
@@ -18,27 +19,15 @@ const shuffle = (arr: string[]) => {
     .map(({ value }) => value);
 };
 
-// --- STYLES (CSS-in-JS for encapsulation) ---
-const styles = `
-  :root {
-    --duo-color-green: #58cc02;
-    --duo-color-green-light: #d7ffb8;
-    --duo-color-green-dark: #58a700;
-    --duo-color-red: #ff4b4b;
-    --duo-color-red-light: #ffdfe0;
-    --duo-color-blue: #1cb0f6;
-    --duo-color-blue-light: #ddf4ff;
-    --duo-color-gray-light: #e5e5e5;
-    --duo-color-gray-medium: #777777;
-    --duo-font-family: 'Nunito', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  }
+// --- KEYFRAME STYLES ---
+const keyframeStyles = `
   @keyframes float-up {
     0% { opacity: 1; transform: translateY(0); }
     100% { opacity: 0; transform: translateY(-60px); }
   }
   .points-animation {
     position: absolute;
-    color: var(--duo-color-green);
+    color: #58cc02; /* Green-500 */
     font-size: 1.75rem;
     font-weight: 800;
     animation: float-up 1s ease-out forwards;
@@ -46,219 +35,23 @@ const styles = `
     z-index: 10;
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
-
-  /* --- Fullscreen Container --- */
-  .duolingo-quiz-container {
-    width: 100vw;
-    height: 100vh;
-    margin: 0;
-    font-family: var(--duo-font-family);
-    padding: 48px;
-    /* Reserve space at the bottom for the feedback footer */
-    padding-bottom: 150px; 
-    position: relative;
-    background-color: #ffffff;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    box-sizing: border-box;
-  }
-  
-  /* Wrapper for vertically centering the main interactive content */
-  .quiz-main-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    height: 100%;
-    width: 100%;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  .quiz-question {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #3c3c3c;
-    margin-bottom: 3rem;
-    text-align: center;
-  }
-
-  .quiz-options-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .quiz-option-button {
-    width: 100%;
-    padding: 24px;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--duo-color-gray-medium);
-    background-color: #ffffff;
-    border: 3px solid var(--duo-color-gray-light);
-    border-bottom-width: 6px;
-    border-radius: 16px;
-    cursor: pointer;
-    text-align: left;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-  }
-
-  .quiz-option-button:hover:not(:disabled) {
-    background-color: #f7f7f7;
-  }
-
-  /* --- Button States --- */
-  .quiz-option-button.selected {
-    background-color: var(--duo-color-blue-light);
-    border-color: var(--duo-color-blue);
-    color: var(--duo-color-blue);
-  }
-
-  .quiz-option-button.correct {
-    background-color: var(--duo-color-green-light);
-    border-color: var(--duo-color-green-dark);
-    color: var(--duo-color-green-dark);
-  }
-
-  .quiz-option-button.incorrect {
-    background-color: var(--duo-color-red-light);
-    border-color: var(--duo-color-red);
-    color: var(--duo-color-red);
-  }
-
-  .quiz-option-button:disabled {
-    cursor: not-allowed;
-  }
-
-  .quiz-option-button.disabled:not(.correct):not(.incorrect) {
-    opacity: 0.5;
-  }
-
-  /* --- Action Button Container (NEW) --- */
-  .quiz-action-container {
-    width: 100%;
-    margin-top: 3rem; /* Space between options and button */
-    padding: 0;
-    display: flex;
-    justify-content: flex-end; /* Align button to the right */
-  }
-
-  .footer-action-button {
-    padding: 18px 50px;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #ffffff;
-    text-transform: uppercase;
-    background-color: var(--duo-color-green);
-    border: none;
-    border-bottom: 5px solid var(--duo-color-green-dark);
-    border-radius: 16px;
-    cursor: pointer;
-    transition: filter 0.2s ease;
-  }
-
-  .footer-action-button:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  .footer-action-button:disabled {
-    background-color: var(--duo-color-gray-light);
-    border-color: var(--duo-color-gray-medium);
-    cursor: not-allowed;
-  }
-
-  /* --- Footer and Feedback --- */
-  .quiz-footer {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    border-top: 3px solid var(--duo-color-gray-light);
-    background-color: #ffffff;
-    min-height: 120px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 48px;
-    transition: background-color 0.3s ease, border-top-color 0.3s ease;
-  }
-  
-  .quiz-footer.correct-banner {
-    background-color: var(--duo-color-green-light);
-    border-top-color: var(--duo-color-green-dark);
-  }
-  
-  .quiz-footer.incorrect-banner {
-    background-color: var(--duo-color-red-light);
-    border-top-color: var(--duo-color-red);
-  }
-  
-  .feedback-message {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 2rem;
-    font-weight: 700;
-  }
-
-  .feedback-message.correct-text { color: var(--duo-color-green-dark); }
-  .feedback-message.incorrect-text { color: var(--duo-color-red); }
-  
-  .feedback-message .icon {
-    font-size: 2.5rem;
-  }
-
-  /* --- Points Animation --- */
-  @keyframes pop-in {
-    0% { opacity: 0; transform: scale(0.5) translateY(20px); }
-    70% { opacity: 1; transform: scale(1.1) translateY(0); }
-    100% { transform: scale(1); }
-  }
-
-  .points-animation {
-    display: inline-block;
-    color: var(--duo-color-green);
-    font-weight: 700;
-    font-size: 2rem;
-    animation: pop-in 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-  }
-  
-  /* --- Media Queries for smaller screens --- */
-  @media (max-width: 768px) {
-    .duolingo-quiz-container {
-      padding: 24px;
-      padding-bottom: 120px;
-    }
-    .quiz-question { font-size: 2rem; }
-    .quiz-options-grid { grid-template-columns: 1fr; }
-    .quiz-option-button { font-size: 1.25rem; padding: 20px; }
-    .feedback-message { font-size: 1.5rem; }
-    .feedback-message .icon { font-size: 2rem; }
-    .points-animation { font-size: 1.5rem; }
-    .quiz-action-container { justify-content: center; } /* Center button on mobile */
-    .footer-action-button { width: 100%; }
-  }
 `;
 
 // --- COMPONENT LOGIC ---
 type QuizStatus = 'idle' | 'checking' | 'correct' | 'incorrect';
 
 export default function MultipleChoiceQuiz({ children, answer, distractors = '', onContinue }: QuizProps) {
-  // Memoize shuffled options so they don't change on re-render
-  const options = useMemo(() =>
-    shuffle([
-      ...distractors.split('|').filter(Boolean),
-      answer,
-    ]), [answer, distractors]);
+
+  const distractorList: string[] = useMemo(() => {
+    if (Array.isArray(distractors)) return distractors.filter(Boolean);
+    if (typeof distractors === 'string') return distractors.split('|').filter(Boolean);
+    return [];
+  }, [distractors]);
+
+  const options = useMemo(() => shuffle([...distractorList, answer]), [distractorList, answer]);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<QuizStatus>('idle');
-
-  // --- Points Animation State ---
   const [pointsAnimation, setPointsAnimation] = useState<{ x: number; y: number; key: string } | null>(null);
   const optionRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -277,7 +70,6 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
     setStatus('checking');
     const isCorrect = selected === answer;
     if (isCorrect) {
-      // Trigger points animation above the correct option
       const btnEl = optionRefs.current.get(selected);
       const containerEl = containerRef.current;
       if (btnEl && containerEl) {
@@ -297,74 +89,80 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
   const handleContinue = () => {
     setSelected(null);
     setStatus('idle');
-    console.log(onContinue, 'onContinue prop in JsxRenderer');
     if (onContinue) {
       onContinue();
     }
   };
 
   const getButtonClass = (option: string) => {
-    let classes = 'quiz-option-button';
-    if (status !== 'idle' && status !== 'checking') {
-      if (option === answer) {
-        classes += ' correct';
-      } else if (option === selected && status === 'incorrect') {
-        classes += ' incorrect';
+    const isGraded = status !== 'idle' && status !== 'checking';
+    const isCorrectAnswer = option === answer;
+    const isSelected = option === selected;
+
+    return cn(
+      'w-full p-4 sm:p-6 text-left text-lg sm:text-xl font-bold border-2 border-b-4 rounded-xl transition-all duration-200 break-words',
+      'text-gray-700 bg-white border-gray-200',
+      'hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60',
+      {
+        'bg-green-100 border-green-400 text-green-500': isSelected && !isGraded,
+        'bg-green-100 border-green-500 text-green-600': isGraded && isCorrectAnswer,
+        'bg-red-100 border-red-400 text-red-500': isGraded && isSelected && !isCorrectAnswer,
+        'opacity-50': isGraded && !isSelected && !isCorrectAnswer,
       }
-    } else if (option === selected) {
-      classes += ' selected';
-    }
-    return classes;
+    );
   };
+
+  const actionButtonClass = cn(
+    'px-8 py-3 text-lg font-bold text-white uppercase rounded-xl border-b-4 transition-transform duration-200',
+    'disabled:bg-gray-300 disabled:border-gray-400 disabled:cursor-not-allowed',
+    {
+      'bg-green-500 border-green-700 hover:bg-green-600 active:scale-95': status === 'idle' || status === 'checking',
+      'bg-green-600 border-green-800 hover:bg-green-700 active:scale-95': status === 'correct' || status === 'incorrect',
+    }
+  );
 
   return (
     <>
-      <style>{styles}</style>
+      <style>{keyframeStyles}</style>
+      <article ref={containerRef} className="flex flex-col justify-center items-center w-full min-h-screen bg-white p-4 sm:p-6 md:p-8">
+        <div className="w-full max-w-2xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-8 sm:mb-12 text-center break-words">
+            {children}
+          </h2>
 
-      <article className="duolingo-quiz-container" ref={containerRef}>
-        <div className="quiz-main-content">
-          <div>
-            <h2 className="quiz-question">{children}</h2>
+          {pointsAnimation && (
+            <div
+              key={pointsAnimation.key}
+              className="points-animation"
+              style={{
+                left: `${pointsAnimation.x}px`,
+                top: `${pointsAnimation.y}px`,
+                transform: 'translateX(-50%)',
+              }}
+            >
+              +10
+            </div>
+          )}
 
-            {/* --- Points Animation (float-up) --- */}
-            {pointsAnimation && (
-              <div
-                key={pointsAnimation.key}
-                className="points-animation"
-                style={{
-                  left: `${pointsAnimation.x}px`,
-                  top: `${pointsAnimation.y}px`,
-                  transform: 'translateX(-50%)',
-                }}
-              >
-                +10
-              </div>
-            )}
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            {options.map(option => (
+              <li key={option}>
+                <button
+                  ref={registerRef(option)}
+                  onClick={() => handleOptionClick(option)}
+                  disabled={status !== 'idle' && status !== 'checking'}
+                  className={getButtonClass(option)}
+                >
+                  {option}
+                </button>
+              </li>
+            ))}
+          </ul>
 
-            <ul className="quiz-options-grid">
-              {options.map(option => (
-                <li key={option}>
-                  <button
-                    ref={registerRef(option)}
-                    onClick={() => handleOptionClick(option)}
-                    disabled={status !== 'idle' && status !== 'checking'}
-                    className={getButtonClass(option)}
-                  >
-                    {option}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* --- INLINE FEEDBACK MESSAGE --- */}
-        
-
-          {/* --- ACTION BUTTON AREA --- */}
-          <div className="quiz-action-container">
+          <div className="mt-8 sm:mt-12 flex justify-center md:justify-end">
             {status === 'idle' || status === 'checking' ? (
               <button
-                className="footer-action-button"
+                className={actionButtonClass}
                 onClick={handleCheck}
                 disabled={!selected}
               >
@@ -372,8 +170,8 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
               </button>
             ) : (
               <button
-                className="footer-action-button"
-                onClick={() => handleContinue()}
+                className={actionButtonClass}
+                onClick={handleContinue}
               >
                 Continue
               </button>

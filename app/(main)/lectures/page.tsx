@@ -347,6 +347,23 @@ export default function LecturesPage() {
             ))}
             
 
+        {/* Empty state when no lectures */}
+        {!loadingMore && displayLectures.length === 0 && creatingLectures.length === 0 && (
+          <div className="col-span-full p-10 text-center text-gray-500">
+            <div className="inline-flex items-center justify-center p-3 bg-gray-100 rounded-full mb-4">
+              <BookOpen className="h-6 w-6 text-gray-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {showSaved ? "No saved lectures" : "No recent lectures"}
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {showSaved
+                ? "Bookmark lectures to find them here later."
+                : "Open or explore some lectures and they’ll appear here."}
+            </p>
+          </div>
+        )}
+
         {/* 8-d   INFINITE SCROLL SENTINEL */}
         <div
           ref={loadMoreRef}

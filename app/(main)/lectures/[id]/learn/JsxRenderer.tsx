@@ -41,6 +41,10 @@ export default function JsxRenderer({ jsx, onContinue }: JsxRendererProps) {
     MultipleChoiceQuiz: withContinue(MultipleChoiceQuiz),
     TypeInAnswer: withContinue(TypeInAnswer),
     Match: withContinue(Match),
+    InlineMath: withContinue(InlineMath),
+    BlockMath: withContinue(BlockMath),
+    DragToBuckets: withContinue(DragToBuckets),
+    SortTheSentence: withContinue(SortTheSentence)
     // Add other interactive components here if they need the onContinue prop
   };
 

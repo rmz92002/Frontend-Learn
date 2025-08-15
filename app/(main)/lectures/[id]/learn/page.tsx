@@ -5,10 +5,10 @@ import { useSearchParams, useParams, redirect } from "next/navigation"
 import Link from "next/link"
 import {
   ChevronLeft, Play, Pause, MessageSquare, Send, X, Brain,
-  Loader2
+  Loader2,
+  Check
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { streamLecture, getCurrentUser, chatWithLecture } from "@/lib/api"    // helper imported here
@@ -17,7 +17,6 @@ import { useToast } from "@/components/ui/use-toast"
 // NEW: Import motion from framer-motion
 import { motion, AnimatePresence } from 'framer-motion'
 import JsxRenderer from "./JsxRenderer"
-import { Card } from "@/components/ui/card"
 
 /* ------------------------------------------------------------------ */
 /* A. The new BuddyChatbot component with "cool" Framer Motion animations */
@@ -513,7 +512,7 @@ const nextDisabled =
                 className="max-w-5xl min-h-[90%] w-full mx-auto rounded-3xl shadow-lg bg-white border-2 border-green-200/70 p-6 flex items-center justify-center 
                           font-['Nunito','Poppins',sans-serif]"
               > */}
-      <main className="flex-1 overflow-auto h-full p-6">
+      <main className="flex-1 overflow-auto h-full px-4">
           
         {lectureSections[currentSection] && lectureSections[currentSection].html ? (
           <div className="flex flex-col h-full">
@@ -541,36 +540,46 @@ const nextDisabled =
 {/* </Card> */}
       {/* nav buttons and chatbot */}
       
-      <Button
-        onClick={goPrev}
-        disabled={currentSection === 0}
-        variant="outline"
-        className="fixed ml-4 bottom-4 z-50 w-32 text-gray-700"
-      >
-        <ChevronLeft className="mr-2 h-4 w-4" />
-        Previous
-      </Button>
+      {/* Navigation buttons only shown if not showing question */}
+      {!showQuestion && (
+        <>
+          <Button
+            onClick={goPrev}
+            disabled={currentSection === 0}
+            variant="outline"
+            className="fixed ml-4 bottom-4 z-50 text-gray-700"
+          >
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">
+              Previous
+            </span>
+          </Button>
+
+          {currentSection >= totalSections - 1 && totalSections !== 0 ? (
+            <Button
+              onClick={() => redirect('/lectures')}
+              className="bg-green-500 text-white hover:bg-green-500 absolute right-4 bottom-4"
+            >
+              <span className="hidden sm:inline">
+                Finish
+              </span> <Check className="h-4 w-4 ml-2" />
+            </Button>
+          ) : (
+            <Button
+              onClick={goNext}
+              className="bg-primary text-white absolute right-4 bottom-4"
+              disabled={nextDisabled}
+            >
+              <span className="hidden sm:inline">
+                Next
+              </span>  <ChevronLeft className="h-4 w-4 ml-2 rotate-180" />
+            </Button>
+          )}
+        </>
+      )}
 
       {/* B. The BuddyChatbot is added here */}
       <BuddyChatbot currentSection={currentSection} />
-
-      {currentSection >= totalSections - 1 && totalSections !== 0 ? (
-        <Button
-          onClick={() => redirect('/lectures')}
-          className="bg-green-500 text-white hover:bg-green-500 absolute right-4 bottom-4 w-32"
-        >
-          Finish <ChevronLeft className="h-4 w-4 ml-2 rotate-180" />
-        </Button>
-      ) : (
-        <Button
-          onClick={goNext}
-          className="bg-primary text-white absolute right-4 bottom-4 w-32"
-          disabled={nextDisabled}
-        >
-          Next <ChevronLeft className="h-4 w-4 ml-2 rotate-180" />
-        </Button>
-      )}
-   
     </div>
   )
 }
