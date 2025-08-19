@@ -19,6 +19,17 @@ import { updateSubscriptionPlan, cancelSubscription } from "@/lib/api"
 // --- Base Plan Definitions ---
 const basePlans = [
   {
+    name: "Free",
+    price: "$0",
+    priceFrequency: "/ month",
+    features: [
+      "3 lecture generations per month",
+      "Access to community lectures",
+      "Basic support",
+    ],
+    cta: "Start for Free",
+  },
+  {
     name: "Plus",
     price: "$20",
     priceFrequency: "/ month",
@@ -192,7 +203,7 @@ export default function BillingPage() {
         </div>
 
         {/* --- Pricing Plans Grid --- */}
-        <div className="grid max-w-5xl mx-auto grid-cols-1 gap-8 sm:gap-10 lg:grid-cols-2">
+        <div className="grid max-w-5xl mx-auto grid-cols-1 gap-8 sm:gap-10 lg:grid-cols-3">
           {plans.map((plan) => (
             <Card
               key={plan.name}

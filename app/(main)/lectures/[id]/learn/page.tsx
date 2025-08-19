@@ -6,12 +6,20 @@ import Link from "next/link"
 import {
   ChevronLeft, Play, Pause, MessageSquare, Send, X, Brain,
   Loader2,
-  Check
+  Check,
+  PenTool,
+  LucidePenTool,
+  Hammer,
+  MessageCircle,
+  MessageSquareCode,
+  MessageCircleHeart,
+  MessageCircleCode
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { streamLecture, getCurrentUser, chatWithLecture } from "@/lib/api"    // helper imported here
+import type { ChatMessage } from "@/lib/api"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useToast } from "@/components/ui/use-toast"
 // NEW: Import motion from framer-motion
@@ -22,7 +30,83 @@ import JsxRenderer from "./JsxRenderer"
 /* A. The new BuddyChatbot component with "cool" Framer Motion animations */
 /* ------------------------------------------------------------------ */
 
-function BuddyChatbot({ currentSection }: { currentSection: number }) {
+
+const ThinkingIndicator = () => (
+  <div className="flex items-end gap-2 justify-start">
+    <motion.div
+      className="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2"
+      initial={{ opacity: 0.6 }}
+      animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.05, 1] }}
+      transition={{ duration: 1.2, repeat: Infinity }}
+    >
+      <motion.div
+        className="w-6 h-6 rounded-full border border-green-300 flex items-center justify-center"
+        animate={{ rotate: [0, 10, -10, 0] }}
+        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <Brain className="w-4 h-4 text-green-700" />
+      </motion.div>
+      <motion.span
+        className="text-green-900 text-sm font-medium"
+        animate={{ opacity: [0.4, 1, 0.4] }}
+        transition={{ duration: 1.2, repeat: Infinity }}
+      >
+        thinking…
+      </motion.span>
+    </motion.div>
+  </div>
+);
+
+// SlideUpdatingOverlay: overlay for when slide is updating via AI
+const SlideUpdatingOverlay = ({ visible }: { visible: boolean }) => (
+  <AnimatePresence>
+    {visible && (
+      <motion.div
+        className="absolute inset-0 z-40 flex items-center justify-center bg-white/70 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        <motion.div
+          className="flex flex-col items-center gap-3 rounded-2xl px-5 py-4 border bg-gradient-to-br from-green-50 to-white"
+          initial={{ scale: 0.95, opacity: 0.8 }}
+          animate={{
+            scale: [0.95, 1, 0.98, 1],
+            opacity: 1,
+          }}
+          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <motion.div
+            className="w-12 h-12 rounded-full border border-green-300 flex items-center justify-center"
+            animate={{ rotate: [0, 12, -12, 0] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Brain className="w-6 h-6 text-green-700" />
+          </motion.div>
+          <motion.div
+            className="w-40 h-1 rounded-full overflow-hidden bg-green-100"
+            initial={false}
+          >
+            <motion.div
+              className="h-full bg-green-500"
+              animate={{ x: ["-100%", "0%", "100%"], width: ["30%", "60%", "30%"] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </motion.div>
+          <motion.span
+            className="text-green-900 text-sm font-medium"
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+          >
+            Updating slide…
+          </motion.span>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+function BuddyChatbot({ currentSection, onSlideUpdate, onSlideUpdating }: { currentSection: number; onSlideUpdate?: (update: { new_html?: string; new_jsx?: string | null }) => void; onSlideUpdating?: (v: boolean) => void }) {
   const { id: lectureId } = useParams<{ id: string }>()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([
@@ -48,77 +132,92 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
 
     const userMessage = {
       id: Date.now(),
-      sender: 'user',
+      sender: 'user' as const,
       text: inputValue,
     }
-    setMessages(prev => [...prev, userMessage])
+
+    // Build history from prior messages (exclude the current user message and any empty placeholders)
+    const history: ChatMessage[] = messages
+      .filter(m => m.text && m.text.trim().length > 0)
+      .map(m => ({
+        role: m.sender === 'user' ? 'user' as const : 'assistant' as const,
+        content: m.text,
+      }));
+
+    // Prepare placeholder for the bot so we can stream into it
+    const botMsgId = userMessage.id + 1
+    const botPlaceholder = {
+      id: botMsgId,
+      sender: 'bot' as const,
+      text: '',
+    }
+
+    setMessages(prev => [...prev, userMessage, botPlaceholder])
     setInputValue('')
     setIsLoading(true)
 
-    let botMsgId = Date.now() + 1;
-    let answer = '';
-    // setMessages(prev => [
-    //   ...prev,
-    //   { id: botMsgId, sender: 'bot', text: '' }
-    // ])
+    // We'll accumulate streamed chunks here
+    let answer = ''
 
     try {
       await chatWithLecture(
         lectureId,
         currentSection,
         userMessage.text,
-        (data) => {
-          if (data.answer !== undefined) {
-            answer = data.answer;
-            setMessages(prev => prev.map(m =>
-              m.id === botMsgId ? { ...m, text: answer } : m
-            ))
-          }
-          if (data.slide_update) {
-            // If slide update is in-progress
-            if (data.slide_update.new_html === "updating") {
-              // Show a loading toast
-              if (toast) {
+        {
+          history,
+          onStream: (data: any) => {
+            // If the API streams partial text, append; if it sends full text, this still works
+            if (typeof data?.answer === 'string') {
+              answer = data.answer
+              setMessages(prev => prev.map(m => (
+                m.id === botMsgId ? { ...m, text: answer } : m
+              )))
+            }
+            if (data?.slide_update) {
+              if (data.slide_update.new_html === 'updating') {
+                onSlideUpdating?.(true);
                 toast({
-                  title: 'Updating slide...', 
-                  description: 'AI is updating the slide. Hang tight!', 
+                  title: 'Updating slide...',
+                  description: 'AI is updating the slide. Hang tight!',
                   variant: 'default',
-                });
-              }
-              // Add a chat message with an updating indicator
-              setMessages(prev => [
-                ...prev,
-                {
-                  id: Date.now() + 2,
-                  sender: 'bot',
-                  text: '🔄 Slide is updating...'
-                },
-              ])
-            } else {
-              // Slide update completed
-              if (toast) {
+                })
+                setMessages(prev => [
+                  ...prev,
+                  { id: Date.now() + 2, sender: 'bot' as const, text: '' },
+                ])
+              } else {
+                onSlideUpdate?.(data.slide_update);
+                onSlideUpdating?.(false);
                 toast({
                   title: 'Slide updated!',
-                  description: 'Slide content was improved and updated by AI. Refresh to see changes.',
+                  description: 'Your slide refreshed automatically.',
                   variant: 'default',
-                });
+                })
+                setMessages(prev => [
+                  ...prev,
+                  { id: Date.now() + 3, sender: 'bot' as const, text: '✅ Updated the slide for you.' },
+                ])
               }
-              setMessages(prev => [
-                ...prev,
-                {
-                  id: Date.now() + 2,
-                  sender: 'bot',
-                  text: '✅ Slide content was improved and updated! Refresh to see changes.',
-                },
-              ])
             }
           }
         }
       )
+
+      // If nothing was streamed but we have a final answer elsewhere, ensure the placeholder isn't empty
+      if (answer === '') {
+        setMessages(prev => prev.map(m => (
+          m.id === botMsgId ? { ...m, text: 'Got it! (No detailed answer returned.)' } : m
+        )))
+      }
     } catch (err: any) {
-      setMessages(prev => prev.map(m =>
-        m.id === botMsgId ? { ...m, text: 'Sorry, there was an error contacting the AI.' } : m
-      ))
+      // Ensure the placeholder exists and shows the error
+      setMessages(prev => {
+        const hasPlaceholder = prev.some(m => m.id === botMsgId)
+        return hasPlaceholder
+          ? prev.map(m => (m.id === botMsgId ? { ...m, text: 'Sorry, there was an error contacting the AI.' } : m))
+          : [...prev, { id: botMsgId, sender: 'bot' as const, text: 'Sorry, there was an error contacting the AI.' }]
+      })
     } finally {
       setIsLoading(false)
     }
@@ -163,6 +262,7 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
     },
   }
 
+
   return (
     <>
       {/* AnimatePresence monitors for components being added or removed */}
@@ -179,8 +279,8 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
             {/* Header */}
             <div className="p-3 border-b flex items-center justify-between bg-gradient-to-r from-green-100 to-white rounded-t-2xl">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🦜</span>
-                <h3 className="font-semibold text-base text-green-700">Buddy Chat</h3>
+                {/* <span className="text-2xl">🦜</span> */}
+                <h3 className="font-semibold text-base text-green-700">Chat</h3>
               </div>
               <button
                 type="button"
@@ -194,45 +294,31 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
 
             {/* Messages */}
             <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-white">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex items-end gap-2 ${
-                    msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {msg.sender === 'bot' && (
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-green-100">
-                        <span className="text-lg">🦜</span>
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
+              {messages.map((msg) => {
+                // If the bot placeholder message has no text yet, show the thinking animation
+                if (msg.sender === 'bot' && msg.text === '') {
+                  return <ThinkingIndicator key={msg.id} />
+                }
+
+                return (
                   <div
-                    className={`max-w-[80%] rounded-xl px-3 py-2 text-sm shadow ${
-                      msg.sender === 'user'
-                        ? 'bg-black text-white ml-auto'
-                        : 'bg-green-50 text-green-900'
+                    key={msg.id}
+                    className={`flex items-end gap-2 ${
+                      msg.sender === 'user' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    {msg.text}
+                    <div
+                      className={`max-w-[80%] rounded-xl px-3 py-2 text-sm shadow ${
+                        msg.sender === 'user'
+                          ? 'bg-black text-white ml-auto'
+                          : 'bg-green-50 text-green-900'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex items-end gap-2 justify-start">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-green-100">
-                      <span className="text-lg">🦜</span>
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="bg-green-50 rounded-xl px-3 py-2 flex items-center">
-                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse delay-0"></span>
-                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse delay-150 mx-1"></span>
-                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse delay-300"></span>
-                  </div>
-                </div>
-              )}
+                )
+              })}
               <div ref={messagesEndRef} />
             </div>
 
@@ -242,7 +328,7 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
                 <Input
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Ask Buddy anything..."
+                  placeholder="Ask anything..."
                   className="flex-1 rounded-lg border-gray-200 focus:ring-green-400"
                   autoComplete="off"
                 />
@@ -257,15 +343,17 @@ function BuddyChatbot({ currentSection }: { currentSection: number }) {
 
       {/* FAB only visible when chat is closed */}
       {!isOpen && (
+        <>
         <motion.button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-16 right-4 z-50 px-6 py-3 rounded-full shadow-lg bg-green-200 text-white font-semibold text-base flex items-center gap-2 hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-green-400"
+          className="fixed bottom-16 right-4 z-50 w-16 h-16 rounded-full shadow-lg bg-green-200 flex items-center justify-center hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-green-400"
           aria-label="Open AI Buddy Chatbot"
           animate="closed"
           variants={fabIconVariants}
         >
-          <span className="text-xl">🦜</span>
+          <MessageCircle color="black" size={22} />
         </motion.button>
+        </>
       )}
     </>
   )
@@ -305,6 +393,19 @@ export default function LearningView() {
   const [generationProgress, setGenerationProgress] = useState(isNewlyCreated ? 20 : 100)
   const [lectureStatus, setLectureStatus] = useState("Generating outline…")
   const [courseTitle, setCourseTitle] = useState("")
+  const [slideUpdating, setSlideUpdating] = useState(false);
+
+  const handleSlideUpdateFromChat = (update: { new_html?: string; new_jsx?: string | null }) => {
+    setLectureSections(prev => {
+      const copy = [...prev];
+      const cur = copy[currentSection] || { html: '', jsx: null };
+      copy[currentSection] = {
+        html: update.new_html ?? cur.html,
+        jsx: (update as any).new_jsx ?? cur.jsx,
+      };
+      return copy;
+    });
+  };
 
   // Helper to safely extract profileId from userDataRaw
   function getProfileId(userData: unknown): number | undefined {
@@ -523,9 +624,10 @@ const nextDisabled =
                   onContinue={goNext}
                 />
               :
-              <div className="flex-grow">
-              <Iframe html={lectureSections[currentSection].html} />
-            </div>}
+              <div className="flex-grow relative">
+                <Iframe html={lectureSections[currentSection].html} />
+                <SlideUpdatingOverlay visible={slideUpdating} />
+              </div>}
 
         
           </div>
@@ -579,7 +681,11 @@ const nextDisabled =
       )}
 
       {/* B. The BuddyChatbot is added here */}
-      <BuddyChatbot currentSection={currentSection} />
+      <BuddyChatbot
+        currentSection={currentSection}
+        onSlideUpdate={handleSlideUpdateFromChat}
+        onSlideUpdating={setSlideUpdating}
+      />
     </div>
   )
 }

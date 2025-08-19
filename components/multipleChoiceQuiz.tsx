@@ -77,7 +77,7 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
         const containerRect = containerEl.getBoundingClientRect();
         setPointsAnimation({
           x: btnRect.left - containerRect.left + btnRect.width / 2,
-          y: btnRect.top - containerRect.top,
+          y: btnRect.top,
           key: selected + Date.now(),
         });
         setTimeout(() => setPointsAnimation(null), 1000);
@@ -104,7 +104,7 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
       'text-gray-700 bg-white border-gray-200',
       'hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60',
       {
-        'bg-green-100 border-green-400 text-green-500': isSelected && !isGraded,
+        'border-green-400 text-black-500': isSelected && !isGraded,
         'bg-green-100 border-green-500 text-green-600': isGraded && isCorrectAnswer,
         'bg-red-100 border-red-400 text-red-500': isGraded && isSelected && !isCorrectAnswer,
         'opacity-50': isGraded && !isSelected && !isCorrectAnswer,
@@ -130,7 +130,7 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
             {children}
           </h2>
 
-          {/* {pointsAnimation && (
+           {/* {pointsAnimation && (
             <div
               key={pointsAnimation.key}
               className="points-animation"
@@ -142,7 +142,7 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
             >
               +10
             </div>
-          )} */}
+          )}  */}
 
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {options.map(option => (

@@ -1,27 +1,13 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Search, Clock, BookOpen, Calendar, X, Heart, MessageSquare, Share2 } from "lucide-react"
-import Link from "next/link"
+import { Search, X } from "lucide-react"
 import { getTrendingLectures, getPopularLectures, TrendingLecture, searchLecturesSemantic } from "@/lib/api"
-import CommunityLoading from "./loading"
-
-// Color mapping for progress bars
-const colorMap = {
-  blue: "bg-blue-500",
-  green: "bg-green-500",
-  purple: "bg-purple-500",
-  pink: "bg-pink-500",
-  orange: "bg-orange-500",
-  teal: "bg-teal-500",
-  yellow: "bg-yellow-500",
-  indigo: "bg-indigo-500",
-  red: "bg-red-500",
-}
+import SearchResults from "./search-results"
+import MainContent from "./main-content"
 
 // All available categories from the data
 const allCategories = [
@@ -33,19 +19,6 @@ const allCategories = [
   "Technology",
   "Personal Development",
 ]
-
-function Iframe({ html }: { html: string }) {
-  const ref = useRef<HTMLIFrameElement>(null)
-  useEffect(() => {
-    if (ref.current) ref.current.srcdoc = html
-  }, [html])
-  return <iframe ref={ref} className=" absolute top-0 left-0
-                h-[700px] w-[1280px]          /* match your lecture page’s real size */
-                origin-top-left
-                scale-[0.30]                  /* ← tweak this until everything fits */
-                pointer-events-none           /* disable clicks in the mini-view   */" 
-                loading="lazy"/>
-}
 
 export default function CommunityPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -73,8 +46,12 @@ export default function CommunityPage() {
     setLoadingTrending(true)
     getTrendingLectures()
       .then(setTrending)
-      .finally(() => setLoadingTrending(false))
+      .finally(() => {
+        
+        setLoadingTrending(false)})
+    
   }, [])
+  console.log(trending)
 
   // Initial load for popular
   useEffect(() => {
@@ -119,20 +96,6 @@ export default function CommunityPage() {
       selectedCategories.length === 0 || selectedCategories.includes(item.category)
     return matchesCategory
   })
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
-  }
-
-  // Format duration
-  const formatDuration = (minutes: number) => {
-    if (minutes < 60) return `${minutes} min`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
-  }
 
   // Toggle category selection
   const toggleCategory = (category: string) => {
@@ -288,236 +251,24 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {searchLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="h-full overflow-hidden rounded-2xl bg-white/70 shadow-md animate-pulse">
-              <CardContent className="flex h-full flex-col gap-6 p-6">
-                <div className="h-6 w-32 bg-gray-200 rounded mb-2" />
-                <div className="h-5 w-40 bg-gray-100 rounded mb-2" />
-                <div className="h-4 w-56 bg-gray-100 rounded mb-2" />
-                <div className="h-4 w-24 bg-gray-100 rounded mb-2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : searchResults ? (
-        // Search Results Section
-        <div>
-          <h2 className="text-2xl font-semibold mb-4 mt-8">Search Results</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {searchResults.length > 0 ? (
-              searchResults.map((item) => (
-                <Link href={`/lectures/${item.lecture_id}`} key={item.lecture_id}  >
-                <Card
-                  key={item.lecture_id}
-                  className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 backdrop-blur-sm shadow-md transition-shadow hover:shadow-lg"
-                >
-                  <CardContent className="flex h-full flex-col gap-6 p-6">
-                    <div className="flex justify-between">
-                      <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
-                        {item.category}
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="line-clamp-2 text-lg font-semibold leading-tight">{item.title}</h3>
-                      <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">{item.description}</p>
-                    </div>
-                    <div className="mt-auto">
-                      <div className="flex items-center justify-between text-sm text-muted-foreground mt-4">
-                        <div className="flex items-center text-xs text-muted-foreground mt-2">
-                          <div className="flex items-center gap-1">
-                            <Heart className="h-3 w-3" />
-                            {item.likes}
-                          </div>
-                          <div className="flex items-center gap-1 ml-2">
-                            <MessageSquare className="h-3 w-3" />
-                            {item.comments_count}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <time>{formatDate(item.date)}</time>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                </Link>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium mb-2">No search results found</h3>
-              </div>
-            )}
-            {/* Sentinel for infinite scroll on search */}
-            {searchResults.length > 0 && hasMoreSearch && (
-              <div ref={loadMoreSearchRef} className="col-span-full text-center py-4 text-gray-400">
-                {searchLoading ? "Loading more results…" : "Scroll for more results…"}
-              </div>
-            )}
-          </div>
-          {searchError && (
-            <div className="text-red-500 text-center">{searchError}</div>
-          )}
-        </div>
+      {searchResults ? (
+        <SearchResults
+          searchResults={searchResults}
+          searchLoading={searchLoading}
+          searchError={searchError}
+          hasMoreSearch={hasMoreSearch}
+          loadMoreSearchRef={loadMoreSearchRef as React.RefObject<HTMLDivElement>}
+        />
       ) : (
-        <>
-          {/* Trending Section */}
-          <div>
-            <h2 className="text-2xl font-semibold mb-4 mt-8">Trending</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {loadingTrending
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <Card key={i} className="h-full overflow-hidden rounded-2xl bg-white/70 shadow-md animate-pulse">
-                      <CardContent className="flex h-full flex-col gap-6 p-6">
-                        <div className="h-6 w-32 bg-gray-200 rounded mb-2" />
-                        <div className="h-5 w-40 bg-gray-100 rounded mb-2" />
-                        <div className="h-4 w-56 bg-gray-100 rounded mb-2" />
-                        <div className="h-4 w-24 bg-gray-100 rounded mb-2" />
-                      </CardContent>
-                    </Card>
-                  ))
-                : trending && trending.length > 0
-                ? trending.map((item) => (
-                  <Link href={`/lectures/${item.lecture_id}`} key={item.lecture_id}>
-      <Card className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 backdrop-blur-sm shadow-md transition-shadow hover:shadow-lg">
-        <CardContent className="flex h-full flex-col gap-6 p-6">
-
-          {/* --- tiny label row --- */}
-          <div className="flex justify-between">
-            <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
-              {item.category}
-            </Badge>
-          </div>
-
-          {/* --- HTML preview --- */}
-          <div className="relative w-full overflow-hidden rounded-lg border bg-white shadow-sm">
-            {/* Maintain a 16-by-9 aspect ratio (tailwind aspect-square plugin not required) */}
-            <div className="relative h-60 w-full overflow-hidden rounded-lg border bg-white shadow-sm">
-  {/* 2️⃣ render the lecture full-size and scale it down */}
-            <Iframe
-              html={item.html_content}
-            />
-          </div>
-          </div>
-
-          {/* --- details below preview --- */}
-          <div className="space-y-2">
-            <h3 className="line-clamp-2 text-lg font-semibold leading-tight">
-              {item.title}
-            </h3>
-            <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">
-              {item.description}
-            </p>
-          </div>
-
-          {/* --- meta row --- */}
-          <div className="mt-auto">
-            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-              <div className="flex items-center gap-2 text-xs">
-                <div className="flex items-center gap-1">
-                  <Heart className="h-3 w-3" />
-                  {item.likes}
-                </div>
-                <div className="flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" />
-                  {item.comments_count}
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-xs">
-                <Calendar className="h-3 w-3" />
-                <time>{formatDate(item.date)}</time>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-                  ))
-                : (
-                  <div className="col-span-full text-center py-12">
-                    <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No trending lectures found</h3>
-                  </div>
-                )}
-            </div>
-          </div>
-          {/* Most Popular Section */}
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Most Popular</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {popular.length === 0 && loadingPopular
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <Card key={i} className="h-full overflow-hidden rounded-2xl bg-white/70 shadow-md animate-pulse">
-                      <CardContent className="flex h-full flex-col gap-6 p-6">
-                        <div className="h-6 w-32 bg-gray-200 rounded mb-2" />
-                        <div className="h-5 w-40 bg-gray-100 rounded mb-2" />
-                        <div className="h-4 w-56 bg-gray-100 rounded mb-2" />
-                        <div className="h-4 w-24 bg-gray-100 rounded mb-2" />
-                      </CardContent>
-                    </Card>
-                  ))
-                : filteredPopular.length > 0
-                ? filteredPopular.map((item) => (
-                  <Link href={`/lectures/${item.lecture_id}`} key={item.lecture_id}  >
-                    <Card
-                      key={item.lecture_id}
-                      className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 backdrop-blur-sm shadow-md transition-shadow hover:shadow-lg"
-                    >
-                      <CardContent className="flex h-full flex-col gap-6 p-6">
-                        <div className="flex justify-between">
-                          <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
-                            {item.category}
-                          </Badge>
-                        </div>
-                        <div className="space-y-2">
-                          <h3 className="line-clamp-2 text-lg font-semibold leading-tight">{item.title}</h3>
-                          <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">{item.description}</p>
-                        </div>
-                        <div className="mt-auto">
-                          <div className="flex items-center justify-between text-sm text-muted-foreground mt-4">
-                            <div className="flex items-center text-xs text-muted-foreground mt-2">
-                              <div className="flex items-center gap-1">
-                                <Heart className="h-3 w-3" />
-                                {item.likes}
-                              </div>
-                              <div className="flex items-center gap-1 ml-2">
-                                <MessageSquare className="h-3 w-3" />
-                                {item.comments_count}
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              <time>{formatDate(item.date)}</time>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    </Link>
-                  ))
-                : (
-                  <div className="col-span-full text-center py-12">
-                    <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No popular lectures found</h3>
-                  </div>
-                )}
-              {/* Sentinel for infinite scroll */}
-              <div
-                ref={loadMoreRef}
-                className="col-span-full text-center py-4 text-gray-400"
-              >
-                {loadingPopular && popular.length > 0
-                  ? "Loading more lectures…"
-                  : !hasMorePopular && popular.length > 0
-                  ? "No more lectures."
-                  : null}
-              </div>
-            </div>
-          </div>
-        </>
+        <MainContent
+          trending={trending}
+          loadingTrending={loadingTrending}
+          popular={popular}
+          loadingPopular={loadingPopular}
+          filteredPopular={filteredPopular}
+          hasMorePopular={hasMorePopular}
+          loadMoreRef={loadMoreRef as React.RefObject<HTMLDivElement>}
+        />
       )}
     </div>
   )

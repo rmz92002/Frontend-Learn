@@ -86,6 +86,7 @@ export default function LectureDetailPage() {
   const [isSaved, setIsSaved] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
+  const [commentCount, setCommentCount] = useState(0)
 
   const [sharePopupOpen, setSharePopupOpen] = useState(false)
   const [shareAnimation, setShareAnimation] = useState(false)
@@ -118,9 +119,11 @@ export default function LectureDetailPage() {
   // --- Effects ---
   useEffect(() => {
     if (lectureData) {
+      console.log(lectureData)
       setIsSaved(lectureData.saved || false)
       setLikeCount(lectureData.likes || 0)
       setIsLiked(lectureData.liked || false)
+      setCommentCount(lectureData.comments_count)
     }
   }, [lectureData])
 
@@ -133,6 +136,13 @@ export default function LectureDetailPage() {
       .then((data) => {
         setComments(data)
         setHasMoreComments(data.length === commentsPageSize)
+        if (lectureData) {
+          const rc = (lectureData as any).comment_count
+          const hasValidCount = rc !== undefined && rc !== null && Number.isFinite(Number(rc))
+          if (!hasValidCount) {
+            setCommentCount(data.length)
+          }
+        }
       })
       .catch(() => setComments([]))
       .finally(() => setCommentsLoading(false))
@@ -203,6 +213,7 @@ export default function LectureDetailPage() {
       const newComment = await createLectureComment(lectureId, userId, commentText)
       setComments([newComment, ...comments])
       setCommentText("")
+      setCommentCount((prev) => prev + 1)
     } catch (err) {
       alert("Failed to post comment.")
     }
@@ -427,7 +438,7 @@ export default function LectureDetailPage() {
                     <motion.div whileTap={{ scale: 0.95 }}>
                       <Button variant="outline" className="w-full" onClick={() => setCommentsOpen(true)}>
                         <MessageSquare className="mr-2 h-4 w-4" />
-                        Comment ({lectureData?.comment_count || 0})
+                        Comment ({commentCount})
                       </Button>
                     </motion.div>
                   </div>
@@ -488,7 +499,7 @@ export default function LectureDetailPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center p-6 border-b">
-              <h3 className="text-xl font-bold">Comments ({comments.length})</h3>
+              <h3 className="text-xl font-bold">Comments ({commentCount})</h3>
               <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setCommentsOpen(false)}><X className="h-4 w-4" /></Button>
             </div>
             
@@ -512,7 +523,7 @@ export default function LectureDetailPage() {
               ) : (
                 <div className="space-y-6">
                   {comments.map((comment) => (
-                    <motion.div key={comment.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
+                    <motion.div key={`comment-${comment.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
                       <Avatar className="h-10 w-10 flex-shrink-0"><AvatarImage src={comment.profile_image || "/placeholder.svg"} /><AvatarFallback>{comment.profile_name?.substring(0, 2) ?? 'U'}</AvatarFallback></Avatar>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -549,7 +560,7 @@ export default function LectureDetailPage() {
                           <div className="ml-8 mt-4 space-y-4">
                             {repliesState[comment.id].loading ? (<div className="text-gray-400">Loading replies…</div>) 
                             : (repliesState[comment.id].replies.map((reply: any) => (
-                                <div key={reply.id} className="flex gap-3">
+                                <div key={`reply-${reply.id}`} className="flex gap-3">
                                   <Avatar className="h-8 w-8 flex-shrink-0"><AvatarImage src={reply.profile_image || "/placeholder.svg"}/><AvatarFallback>{reply.profile_name?.substring(0,2) ?? 'U'}</AvatarFallback></Avatar>
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">

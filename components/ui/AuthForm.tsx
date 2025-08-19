@@ -26,6 +26,7 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
 
   useEffect(() => {
     if (isSignup && confirmPassword) {
@@ -60,11 +61,34 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
         return
       }
 
-      router.replace("/")
+      if (isSignup) {
+        setRegistrationSuccess(true)
+      } else {
+        console.log("Redirecting to /")
+        router.replace("/")
+      }
     } catch (error) {
       console.error(`${isSignup ? "Signup" : "Login"} failed:`, error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleResendConfirmation = async () => {
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/resend-confirmation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        },
+      )
+      // Optionally, show a toast notification indicating the email has been resent
+    } catch (error) {
+      console.error("Failed to resend confirmation email:", error)
     }
   }
 
@@ -78,6 +102,26 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
       console.error("Google authentication failed:", error)
       setGoogleLoading(false)
     }
+  }
+
+  if (registrationSuccess) {
+    return (
+      <div className="w-full max-w-md text-center">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Registration Successful!
+        </h1>
+        <p className="text-gray-500 mt-2">
+          A confirmation email has been sent to <strong>{email}</strong>.
+          Please check your inbox to complete the registration.
+        </p>
+        <Button
+          onClick={handleResendConfirmation}
+          className="mt-4 w-full rounded-lg bg-primary hover:bg-emerald-700 text-white"
+        >
+          Resend Confirmation Email
+        </Button>
+      </div>
+    )
   }
 
   return (

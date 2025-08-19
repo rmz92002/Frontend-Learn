@@ -67,28 +67,24 @@ export default function LecturesPage() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
   /*───────────────────────────────────────────────────────────
-   * 3.  RESET when filters change
+   * 3.  FETCH LECTURES
    *───────────────────────────────────────────────────────────*/
   useEffect(() => {
     setLectures([])
     setPage(1)
     setHasMore(true)
-  }, [showSaved, userId])
-
-  /*───────────────────────────────────────────────────────────
-   * 4.  FIRST PAGE
-   *───────────────────────────────────────────────────────────*/
-  useEffect(() => {
-    // Only require a user when fetching “Saved” lectures
     setLoadingMore(true)
-    ;(async () => {
+
+    const fetchFirstPage = async () => {
       const data = showSaved
         ? await getSavedLectures(userId, 1, pageSize)
         : await getRecentlyViewedLectures(userId, 1, pageSize)
       setLectures(data)
       setHasMore(data.length === pageSize)
       setLoadingMore(false)
-    })()
+    }
+
+    fetchFirstPage()
   }, [showSaved, userId])
 
   /*───────────────────────────────────────────────────────────
@@ -258,93 +254,96 @@ export default function LecturesPage() {
           </Card>
         ))}
 
-        {/* 8-b   SKELETONS on first load */}
-        {(loadingMore)
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <Card
-                key={i}
-                className="h-full overflow-hidden rounded-2xl bg-white/70 shadow-md"
-              >
-                <CardContent className="flex h-full flex-col gap-6 p-6">
+        {/* 8-b   READY lectures */}
+        {displayLectures.map((lecture: any) => (
+          <Link
+            key={lecture.lecture_id}
+            href={`/lectures/${lecture.lecture_id}`}
+          >
+            <Card className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 shadow-md backdrop-blur-sm transition-shadow hover:shadow-lg">
+              <CardContent className="flex h-full flex-col gap-6 p-6">
+                <div className="flex justify-between">
+                  <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
+                    {lecture.category}
+                  </Badge>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {lecture.progress}%
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="line-clamp-2 text-lg font-semibold leading-tight">
+                    {lecture.title}
+                  </h3>
+                  <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">
+                    {lecture.description}
+                  </p>
+                </div>
+
+                {/* progress bar */}
+                <div className="mt-auto">
+                  <div className="h-2 rounded-full bg-muted/60">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        lecture.progress === 100
+                          ? "bg-green-500"
+                          : "bg-gray-500"
+                      }`}
+                      style={{ width: `${lecture.progress}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs">
+                      <ThumbsUp className="h-3 w-3" />
+                      {lecture.likes}
+                      <MessageCircle className="ml-2 h-3 w-3" />
+                      {lecture.comments_count}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs">
+                      <Calendar className="h-3 w-3" />
+                      <time>
+                        {new Date(
+                          lecture.date ?? lecture.created_at
+                        ).toLocaleDateString()}
+                      </time>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+
+        {/* 8-c   SKELETONS on first load */}
+        {loadingMore &&
+          displayLectures.length === 0 &&
+          creatingLectures.length === 0 &&
+          Array.from({ length: 6 }).map((_, i) => (
+            <Card
+              key={i}
+              className="h-full overflow-hidden rounded-2xl bg-white/70 shadow-md"
+            >
+              <CardContent className="flex h-full flex-col gap-6 p-6">
+                <div className="flex justify-between">
+                  <Skeleton className="h-6 w-20 rounded" />
+                  <Skeleton className="h-4 w-8 rounded" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-40 rounded" />
+                  <Skeleton className="h-4 w-56 rounded" />
+                </div>
+                <div className="mt-auto space-y-4">
+                  <Skeleton className="h-2 w-full rounded-full" />
+                  <Skeleton className="h-10 w-full rounded-full" />
                   <div className="flex justify-between">
-                    <Skeleton className="h-6 w-20 rounded" />
-                    <Skeleton className="h-4 w-8 rounded" />
+                    <Skeleton className="h-4 w-24 rounded" />
+                    <Skeleton className="h-16 w-16 rounded" />
                   </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-40 rounded" />
-                    <Skeleton className="h-4 w-56 rounded" />
-                  </div>
-                  <div className="mt-auto space-y-4">
-                    <Skeleton className="h-2 w-full rounded-full" />
-                    <Skeleton className="h-10 w-full rounded-full" />
-                    <div className="flex justify-between">
-                      <Skeleton className="h-4 w-24 rounded" />
-                      <Skeleton className="h-4 w-16 rounded" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          : /* 8-c   READY lectures */
-            displayLectures.map((lecture: any, index) => (
-              <Link
-                key={index}
-                href={`/lectures/${lecture.lecture_id}`}
-              >
-                <Card className="group h-full overflow-hidden rounded-2xl border border-transparent bg-white/70 shadow-md backdrop-blur-sm transition-shadow hover:shadow-lg">
-                  <CardContent className="flex h-full flex-col gap-6 p-6">
-                    <div className="flex justify-between">
-                      <Badge className="bg-green-100 text-green-800 group-hover:bg-green-200">
-                        {lecture.category}
-                      </Badge>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {lecture.progress}%
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="line-clamp-2 text-lg font-semibold leading-tight">
-                        {lecture.title}
-                      </h3>
-                      <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">
-                        {lecture.description}
-                      </p>
-                    </div>
-
-                    {/* progress bar */}
-                    <div className="mt-auto">
-                      <div className="h-2 rounded-full bg-muted/60">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 ${
-                            lecture.progress === 100
-                              ? "bg-green-500"
-                              : "bg-gray-500"
-                          }`}
-                          style={{ width: `${lecture.progress}%` }}
-                        />
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2 text-xs">
-                          <ThumbsUp className="h-3 w-3" />
-                          {lecture.likes}
-                          <MessageCircle className="ml-2 h-3 w-3" />
-                          {lecture.comments_count}
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <Calendar className="h-3 w-3" />
-                          <time>
-                            {new Date(
-                              lecture.date ?? lecture.created_at
-                            ).toLocaleDateString()}
-                          </time>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
             
 
         {/* Empty state when no lectures */}

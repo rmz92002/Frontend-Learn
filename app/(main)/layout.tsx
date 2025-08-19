@@ -73,7 +73,7 @@ export default function MainLayout({
   
 
   return (
-    <>
+    <div className="bg-gradient-to-br from-white via-emerald-50 to-white">
 
           {/* Sidebar is always rendered */}
           <Sidebar />
@@ -177,6 +177,6 @@ Status: <span className="font-medium text-blue-700">{creatingLecture.status || '
         {/* Add padding to the top for logged-out users to prevent content from overlapping with buttons */}
             <main >{children}</main>
           </div>
-    </>
+    </div>
   )
 }

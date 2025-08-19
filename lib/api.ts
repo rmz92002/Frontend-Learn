@@ -160,7 +160,7 @@ export interface LectureInProgress {
   likes: number
   saved: boolean
   profile: any
-  comment_count: number
+  comments_count: number
   course: any
   course_id: any
   title: string;
@@ -427,6 +427,7 @@ export async function likeComment(
 }
 
 export interface TrendingLecture {
+  code: any;
   html_content: string
   title: string;
   description?: string;
@@ -526,23 +527,53 @@ export async function getRecentlyViewedLectures(
   return response.json();
 }
 
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
 export async function chatWithLecture(
   lectureId: string,
   slideIndex: number,
   question: string,
-  onStream?: (data: { answer?: string; slide_update?: { slide_index: number; new_html: string | null } }) => void,
+  onStreamOrOpts?: (
+    | ((data: { answer?: string; slide_update?: { slide_index: number; new_html: string | null } }) => void)
+    | { onStream?: (data: { answer?: string; slide_update?: { slide_index: number; new_html: string | null } }) => void; history?: ChatMessage[] }
+  ),
   signal?: AbortSignal
 ): Promise<string> {
   const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/lectures/${lectureId}/chat/${slideIndex}`);
+
+  // Backward compatibility: 4th arg can be a function (onStream) or an options object with { onStream, history }
+  let onStream:
+    | ((data: { answer?: string; slide_update?: { slide_index: number; new_html: string | null } }) => void)
+    | undefined;
+  let history: ChatMessage[] | undefined;
+
+  if (typeof onStreamOrOpts === "function") {
+    onStream = onStreamOrOpts;
+  } else if (onStreamOrOpts && typeof onStreamOrOpts === "object") {
+    onStream = onStreamOrOpts.onStream;
+    history = onStreamOrOpts.history;
+  }
+
+  const body: Record<string, any> = { question };
+  if (Array.isArray(history) && history.length > 0) {
+    // The backend expects an array of { role, content }
+    body.history = history;
+  }
+
   const response = await fetch(url.toString(), {
-    method: 'POST',
-    credentials: 'include',
+    method: "POST",
+    credentials: "include",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify(body),
     signal,
   });
+
   if (!response.ok) {
     throw new Error(`Failed to get chat answer: ${response.status}`);
   }
@@ -551,40 +582,47 @@ export async function chatWithLecture(
   if (onStream) {
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
-    let answer = '';
-    let buffer = '';
+    let answer = "";
+    let buffer = "";
+
     while (reader) {
       const { done, value } = await reader.read();
       if (done) break;
+
       buffer += decoder.decode(value, { stream: true });
+
       // Handle event:slide_update
-      let eventIdx;
-      while ((eventIdx = buffer.indexOf('event:slide_update')) !== -1) {
-        const dataIdx = buffer.indexOf('data:', eventIdx);
-        const endIdx = buffer.indexOf('\n\n', dataIdx);
+      let eventIdx: number;
+      while ((eventIdx = buffer.indexOf("event:slide_update")) !== -1) {
+        const dataIdx = buffer.indexOf("data:", eventIdx);
+        const endIdx = buffer.indexOf("\n\n", dataIdx);
         if (dataIdx !== -1 && endIdx !== -1) {
           const jsonStr = buffer.slice(dataIdx + 5, endIdx).trim();
           try {
             const slide_update = JSON.parse(jsonStr);
             onStream({ slide_update });
-          } catch {}
+          } catch {
+            // swallow JSON parse errors for malformed chunks
+          }
           buffer = buffer.slice(endIdx + 2);
         } else {
           break;
         }
       }
-      // Stream normal text
-      const parts = buffer.split('event:slide_update');
+
+      // Stream normal text (everything not part of a slide_update event)
+      const parts = buffer.split("event:slide_update");
       if (parts.length > 1) {
         answer += parts[0];
-        onStream({ answer: answer });
+        onStream({ answer });
         buffer = buffer.slice(parts[0].length);
       } else {
         answer += buffer;
         onStream({ answer });
-        buffer = '';
+        buffer = "";
       }
     }
+
     return answer;
   } else {
     // If not streaming, just return the full text
@@ -666,6 +704,28 @@ export async function openCustomerPortal(
     throw new Error(
       `Failed to create customer portal session: ${response.status}`
     );
+  }
+
+  return response.json();
+}
+
+// lib/api.ts
+export async function createFeedback(
+  feedback: { title: string; content: string; rating?: number }, // shape must match your FeedbackCreate schema
+  signal?: AbortSignal
+): Promise<{ message: string }> {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/feedback/`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(feedback),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to submit feedback: ${response.status}`);
   }
 
   return response.json();

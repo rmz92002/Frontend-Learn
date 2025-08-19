@@ -128,7 +128,7 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
 
   /* ────────────────────────── UI ─────────────────────────────── */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-white via-emerald-50 to-white">
     <div className="container px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 mx-auto max-w-4xl">
       <div className="flex flex-col items-center justify-center">
         <h1 className="text-4xl sm:text-5xl font-bold text-center mb-8 sm:mb-12 text-primary">
@@ -241,7 +241,7 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
           {popularTopics.map((topic, index) => (
             <Card
               key={index}
-              className="flex flex-row bg-secondary items-center gap-2 px-3 py-2 text-center cursor-pointer hover:shadow-lg transition-transform rounded-xl border border-gray-100 hover:border-gray-200 hover:scale-105"
+              className="flex flex-row items-center gap-2 px-3 py-2 text-center cursor-pointer hover:shadow-lg transition-transform rounded-xl border border-gray-100 hover:border-gray-200 hover:scale-105"
               style={{ minHeight: 'auto' }}
               onClick={() => {
                 setLectureQuery(topic.label);
