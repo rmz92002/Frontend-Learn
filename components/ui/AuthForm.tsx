@@ -27,6 +27,7 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
+  const [showConfirmEmail, setShowConfirmEmail] = useState(false)
 
   useEffect(() => {
     if (isSignup && confirmPassword) {
@@ -57,6 +58,12 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
       })
 
       if (!res.ok) {
+        if (res.status === 401) {
+          const data = await res.json()
+          if (data.detail === "Email not confirmed") {
+            setShowConfirmEmail(true)
+          }
+        }
         // Show toast / error state
         return
       }
@@ -122,6 +129,11 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
         </Button>
       </div>
     )
+  }
+
+  if (showConfirmEmail) {
+    router.push(`/confirm-email?email=${encodeURIComponent(email)}`)
+    return null
   }
 
   return (
