@@ -1,63 +1,59 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
-import { useSearchParams, useParams, redirect } from "next/navigation"
+import React, { useState, useEffect, useRef, useCallback } from "react"
+import { useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
 import {
-  ChevronLeft, Play, Pause, MessageSquare, Send, X, Brain,
+  ChevronLeft,
   Loader2,
-  Check,
-  PenTool,
-  LucidePenTool,
-  Hammer,
-  MessageCircle,
-  MessageSquareCode,
-  MessageCircleHeart,
-  MessageCircleCode
+  Brain,
+  CheckCircle,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Input } from "@/components/ui/input"
-import { streamLecture, getCurrentUser, chatWithLecture } from "@/lib/api"    // helper imported here
-import type { ChatMessage } from "@/lib/api"
+import { Switch } from "@/components/ui/switch"
+import { streamLecture } from "@/lib/api"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useToast } from "@/components/ui/use-toast"
-// NEW: Import motion from framer-motion
 import { motion, AnimatePresence } from 'framer-motion'
 import JsxRenderer from "./JsxRenderer"
+import { BuddyChatbot } from "@/components/BuddyChatbot"
 
-/* ------------------------------------------------------------------ */
-/* A. The new BuddyChatbot component with "cool" Framer Motion animations */
-/* ------------------------------------------------------------------ */
+type StreamEvent = {
+  status: "outline_complete" | "code_complete" | "complete";
+  length: number;
+  title: string;
+  code: {
+    html: string;
+    jsx: string | null;
+  };
+  index: number;
+  progress?: number;
+};
 
-
-const ThinkingIndicator = () => (
-  <div className="flex items-end gap-2 justify-start">
+const CompletionScreen = ({ title, lectureId }: { title: string, lectureId: string }) => (
+  <motion.div
+    className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.5 }}
+  >
     <motion.div
-      className="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2"
-      initial={{ opacity: 0.6 }}
-      animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.05, 1] }}
-      transition={{ duration: 1.2, repeat: Infinity }}
+      className="flex flex-col items-center gap-6 text-center p-8"
+      initial={{ scale: 0.9, y: 20 }}
+      animate={{ scale: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
     >
-      <motion.div
-        className="w-6 h-6 rounded-full border border-green-300 flex items-center justify-center"
-        animate={{ rotate: [0, 10, -10, 0] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <Brain className="w-4 h-4 text-green-700" />
-      </motion.div>
-      <motion.span
-        className="text-green-900 text-sm font-medium"
-        animate={{ opacity: [0.4, 1, 0.4] }}
-        transition={{ duration: 1.2, repeat: Infinity }}
-      >
-        thinking…
-      </motion.span>
+      <CheckCircle className="w-24 h-24 text-green-500" />
+      <h1 className="text-4xl font-bold text-gray-800">Well done!</h1>
+      <p className="text-lg text-gray-600 max-w-md">
+        You have successfully completed the lecture: <span className="font-semibold">{title}</span>
+      </p>
+      <Link href={`/lectures/${lectureId}`} className="mt-4 inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+        Back to Lecture Overview
+      </Link>
     </motion.div>
-  </div>
+  </motion.div>
 );
 
-// SlideUpdatingOverlay: overlay for when slide is updating via AI
 const SlideUpdatingOverlay = ({ visible }: { visible: boolean }) => (
   <AnimatePresence>
     {visible && (
@@ -66,621 +62,466 @@ const SlideUpdatingOverlay = ({ visible }: { visible: boolean }) => (
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
       >
         <motion.div
           className="flex flex-col items-center gap-3 rounded-2xl px-5 py-4 border bg-gradient-to-br from-green-50 to-white"
-          initial={{ scale: 0.95, opacity: 0.8 }}
-          animate={{
-            scale: [0.95, 1, 0.98, 1],
-            opacity: 1,
-          }}
-          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
         >
           <motion.div
             className="w-12 h-12 rounded-full border border-green-300 flex items-center justify-center"
-            animate={{ rotate: [0, 12, -12, 0] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
           >
             <Brain className="w-6 h-6 text-green-700" />
           </motion.div>
-          <motion.div
-            className="w-40 h-1 rounded-full overflow-hidden bg-green-100"
-            initial={false}
-          >
-            <motion.div
-              className="h-full bg-green-500"
-              animate={{ x: ["-100%", "0%", "100%"], width: ["30%", "60%", "30%"] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </motion.div>
-          <motion.span
-            className="text-green-900 text-sm font-medium"
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.2, repeat: Infinity }}
-          >
-            Updating slide…
-          </motion.span>
+          <p className="text-green-900 text-sm font-medium">Updating slide…</p>
         </motion.div>
       </motion.div>
     )}
   </AnimatePresence>
 );
 
-function BuddyChatbot({ currentSection, onSlideUpdate, onSlideUpdating }: { currentSection: number; onSlideUpdate?: (update: { new_html?: string; new_jsx?: string | null }) => void; onSlideUpdating?: (v: boolean) => void }) {
-  const { id: lectureId } = useParams<{ id: string }>()
-  const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'bot',
-      text: 'Hey there! 👋 Got any questions about this slide? Ask away! I\'ll do my best to help.',
-    },
-  ])
-  const [inputValue, setInputValue] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { toast } = useToast();
-
-  // Auto-scroll to the latest message
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!inputValue.trim()) return
-
-    const userMessage = {
-      id: Date.now(),
-      sender: 'user' as const,
-      text: inputValue,
-    }
-
-    // Build history from prior messages (exclude the current user message and any empty placeholders)
-    const history: ChatMessage[] = messages
-      .filter(m => m.text && m.text.trim().length > 0)
-      .map(m => ({
-        role: m.sender === 'user' ? 'user' as const : 'assistant' as const,
-        content: m.text,
-      }));
-
-    // Prepare placeholder for the bot so we can stream into it
-    const botMsgId = userMessage.id + 1
-    const botPlaceholder = {
-      id: botMsgId,
-      sender: 'bot' as const,
-      text: '',
-    }
-
-    setMessages(prev => [...prev, userMessage, botPlaceholder])
-    setInputValue('')
-    setIsLoading(true)
-
-    // We'll accumulate streamed chunks here
-    let answer = ''
-
-    try {
-      await chatWithLecture(
-        lectureId,
-        currentSection,
-        userMessage.text,
-        {
-          history,
-          onStream: (data: any) => {
-            // If the API streams partial text, append; if it sends full text, this still works
-            if (typeof data?.answer === 'string') {
-              answer = data.answer
-              setMessages(prev => prev.map(m => (
-                m.id === botMsgId ? { ...m, text: answer } : m
-              )))
-            }
-            if (data?.slide_update) {
-              if (data.slide_update.new_html === 'updating') {
-                onSlideUpdating?.(true);
-                toast({
-                  title: 'Updating slide...',
-                  description: 'AI is updating the slide. Hang tight!',
-                  variant: 'default',
-                })
-                setMessages(prev => [
-                  ...prev,
-                  { id: Date.now() + 2, sender: 'bot' as const, text: '' },
-                ])
-              } else {
-                onSlideUpdate?.(data.slide_update);
-                onSlideUpdating?.(false);
-                toast({
-                  title: 'Slide updated!',
-                  description: 'Your slide refreshed automatically.',
-                  variant: 'default',
-                })
-                setMessages(prev => [
-                  ...prev,
-                  { id: Date.now() + 3, sender: 'bot' as const, text: '✅ Updated the slide for you.' },
-                ])
-              }
-            }
-          }
-        }
-      )
-
-      // If nothing was streamed but we have a final answer elsewhere, ensure the placeholder isn't empty
-      if (answer === '') {
-        setMessages(prev => prev.map(m => (
-          m.id === botMsgId ? { ...m, text: 'Got it! (No detailed answer returned.)' } : m
-        )))
-      }
-    } catch (err: any) {
-      // Ensure the placeholder exists and shows the error
-      setMessages(prev => {
-        const hasPlaceholder = prev.some(m => m.id === botMsgId)
-        return hasPlaceholder
-          ? prev.map(m => (m.id === botMsgId ? { ...m, text: 'Sorry, there was an error contacting the AI.' } : m))
-          : [...prev, { id: botMsgId, sender: 'bot' as const, text: 'Sorry, there was an error contacting the AI.' }]
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Animation variants for the chat window
-  const chatWindowVariants = {
-    open: {
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      transition: {
-        type: "spring" as const,
-        stiffness: 200,
-        damping: 20,
-        duration: 0.3,
-      },
-    },
-    closed: {
-      opacity: 0,
-      scale: 0.95,
-      y: 20,
-      transition: {
-        duration: 0.2,
-      },
-    },
-  }
-
-  // Animation variants for the FAB icon
-  const fabIconVariants = {
-    open: {
-      rotate: 0,
-      scale: 1,
-      opacity: 1,
-      transition: { duration: 0.2 },
-    },
-    closed: {
-      rotate: 0,
-      scale: 1,
-      opacity: 1,
-      transition: { duration: 0.2 },
-    },
-  }
-
-
-  return (
-    <>
-      {/* AnimatePresence monitors for components being added or removed */}
-      <AnimatePresence>
-        {isOpen && (
-          // Use motion.div for animated HTML elements
-          <motion.div
-            className="fixed bottom-24 right-4 w-80 h-[28rem] bg-white border rounded-2xl shadow-2xl flex flex-col z-50 animate-in fade-in-5 slide-in-from-bottom-2"
-            variants={chatWindowVariants}
-            initial="closed"
-            animate="open"
-            exit="closed"
-          >
-            {/* Header */}
-            <div className="p-3 border-b flex items-center justify-between bg-gradient-to-r from-green-100 to-white rounded-t-2xl">
-              <div className="flex items-center gap-2">
-                {/* <span className="text-2xl">🦜</span> */}
-                <h3 className="font-semibold text-base text-green-700">Chat</h3>
-              </div>
-              <button
-                type="button"
-                className="rounded-full p-1 hover:bg-green-200 transition-colors"
-                onClick={() => setIsOpen(false)}
-                aria-label="Close chat"
-              >
-                <X className="h-5 w-5 text-green-700" />
-              </button>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-white">
-              {messages.map((msg) => {
-                // If the bot placeholder message has no text yet, show the thinking animation
-                if (msg.sender === 'bot' && msg.text === '') {
-                  return <ThinkingIndicator key={msg.id} />
-                }
-
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex items-end gap-2 ${
-                      msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-xl px-3 py-2 text-sm shadow ${
-                        msg.sender === 'user'
-                          ? 'bg-black text-white ml-auto'
-                          : 'bg-green-50 text-green-900'
-                      }`}
-                    >
-                      {msg.text}
-                    </div>
-                  </div>
-                )
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Form */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t bg-white flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Ask anything..."
-                  className="flex-1 rounded-lg border-gray-200 focus:ring-green-400"
-                  autoComplete="off"
-                />
-                <Button type="submit" size="icon" className="bg-green-500 hover:bg-green-600 text-white">
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* FAB only visible when chat is closed */}
-      {!isOpen && (
-        <>
-        <motion.button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-16 right-4 z-50 w-16 h-16 rounded-full shadow-lg bg-green-200 flex items-center justify-center hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-green-400"
-          aria-label="Open AI Buddy Chatbot"
-          animate="closed"
-          variants={fabIconVariants}
-        >
-          <MessageCircle color="black" size={22} />
-        </motion.button>
-        </>
-      )}
-    </>
-  )
-}
-
-
-/* ------------------------------------------------------------------ */
-/* Isolated iframe component                                         */
-/* ------------------------------------------------------------------ */
-function Iframe({ html }: { html: string }) {
+function Iframe({ html }: { html: string; }) {
   const ref = useRef<HTMLIFrameElement>(null)
+
+  // Build a srcdoc that wraps the user HTML and adds a small script to post edge events
+  const buildSrcDoc = (content: string) => `<!doctype html><html><head><meta charset="utf-8"/></head><body style="margin:0;">
+    <div id="__slide_root" style="min-height:100vh;">
+      ${content}
+    </div>
+    <script>(function(){
+      var gate=false, acc=0, THRESH=150, DECAY_MS=600, COMMIT_MS=900, decayT, commitT;
+      function reopen(){ gate=false; clearTimeout(commitT); }
+      function commit(){ if(gate) return; gate=true; parent.postMessage({source:'lecture-iframe', type:'intent-next'}, '*'); commitT=setTimeout(reopen, COMMIT_MS); }
+      function atTop(){ var el=document.scrollingElement||document.documentElement; return el.scrollTop<=0; }
+      function atBottom(){ var el=document.scrollingElement||document.documentElement; return Math.ceil(el.scrollTop + window.innerHeight) >= el.scrollHeight; }
+      function reset(){ acc=0; parent.postMessage({source:'lecture-iframe', type:'edge-reset'}, '*'); }
+      function onWheel(e){
+        if (e.deltaY>0 && atBottom()){
+          acc += Math.abs(e.deltaY);
+          var prog = Math.max(0, Math.min(1, acc/THRESH));
+          parent.postMessage({source:'lecture-iframe', type:'edge-progress', dir: e.deltaY>0?'bottom':'top', progress: prog}, '*');
+          clearTimeout(decayT); decayT = setTimeout(reset, DECAY_MS);
+          if (acc >= THRESH){ commit(); acc=0; }
+        } else {
+          reset();
+        }
+      }
+      window.addEventListener('wheel', onWheel, {passive:true});
+    })();</script>
+  </body></html>`;
+
   useEffect(() => {
-    if (ref.current) ref.current.srcdoc = html
+    if (ref.current) {
+      ref.current.srcdoc = buildSrcDoc(html || "");
+    }
   }, [html])
-  return <iframe ref={ref} style={{ width: "100%", height: "100%" }} />
+
+  return <iframe ref={ref} title="Lecture Content" className="w-full h-full border-0" />
 }
 
-
-/* ------------------------------------------------------------------ */
-/* Main component                                                    */
-/* ------------------------------------------------------------------ */
 export default function LearningView() {
-  /* ------------- params & query ---------------- */
-  const { slug, id } = useParams<{ slug: string; id: string }>()
+  const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
-  const isNewlyCreated = searchParams.get("new") === "true"
-  const controllerRef = useRef<AbortController | null>(null);
-  const { data: userDataRaw, isLoading: userLoading } = useCurrentUser()
+  const { data: userData } = useCurrentUser()
+  const { toast } = useToast()
 
-  /* ------------- state ------------------------- */
+  const [lectureSections, setLectureSections] = useState<Array<{ html: string, jsx: string | null }>>([])
   const [currentSection, setCurrentSection] = useState(0)
-  const [showQuestion, setShowQuestion] = useState(false)
-  const [lectureSections, setLectureSections] = useState<Array<{html: string, jsx: string | null}>>([])
-  const [availableSections, setAvailableSections] = useState<number[]>([])
   const [totalSections, setTotalSections] = useState(0)
+  const [courseTitle, setCourseTitle] = useState("")
+  const [availableSections, setAvailableSections] = useState<number[]>([])
+  const [scrollAdvance, setScrollAdvance] = useState(true);
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  const isNewlyCreated = searchParams.get("new") === "true"
   const [isGeneratingContent, setIsGeneratingContent] = useState(isNewlyCreated)
   const [generationProgress, setGenerationProgress] = useState(isNewlyCreated ? 20 : 100)
-  const [lectureStatus, setLectureStatus] = useState("Generating outline…")
-  const [courseTitle, setCourseTitle] = useState("")
   const [slideUpdating, setSlideUpdating] = useState(false);
+  const [showQuestion, setShowQuestion] = useState(false)
+  
+  const [swipeY, setSwipeY] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const scrollEndTimeout = useRef<number | null>(null);
+  const SWIPE_THRESHOLD = 120;
 
-  const handleSlideUpdateFromChat = (update: { new_html?: string; new_jsx?: string | null }) => {
-    setLectureSections(prev => {
-      const copy = [...prev];
-      const cur = copy[currentSection] || { html: '', jsx: null };
-      copy[currentSection] = {
-        html: update.new_html ?? cur.html,
-        jsx: (update as any).new_jsx ?? cur.jsx,
-      };
-      return copy;
-    });
-  };
+  const controllerRef = useRef<AbortController>()
 
-  // Helper to safely extract profileId from userDataRaw
-  function getProfileId(userData: unknown): number | undefined {
-    if (
-      userData &&
-      typeof userData === 'object' &&
-      'profile' in userData &&
-      userData.profile &&
-      typeof (userData as any).profile === 'object' &&
-      'id' in (userData as any).profile
-    ) {
-      return (userData as any).profile.id as number;
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('scrollAdvance');
+      if (saved !== null) setScrollAdvance(saved === 'true');
+    } catch { }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('scrollAdvance', String(scrollAdvance));
+    } catch { }
+  }, [scrollAdvance]);
+
+  const getProfileId = (data: unknown): number | undefined => (data as any)?.profile?.id;
+
+
+  // --- Navigation & Animation Logic ---
+  const goNext = useCallback(() => {
+    const nextSection = currentSection + 1;
+    if (nextSection >= totalSections) {
+      if (totalSections > 0) {
+        setIsCompleted(true);
+      }
+      return;
     }
-    return undefined;
-  }
+    if (isGeneratingContent && !availableSections.includes(nextSection)) {
+      toast({ title: 'Hold on!', description: 'The next slide is still being generated.' });
+      return;
+    }
+    const currentSlide = lectureSections[currentSection];
+    if (currentSlide?.jsx && !showQuestion) {
+      setShowQuestion(true);
+    } else {
+      setShowQuestion(false);
+      setCurrentSection(prev => prev + 1);
+    }
+  }, [currentSection, totalSections, isGeneratingContent, availableSections, lectureSections, showQuestion, toast, setIsCompleted, id]);
+  // --- Listen for iframe messages to handle edge scroll events ---
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      const d = (ev && ev.data) || {};
+      console.log(d.type)
+      if (!d || d.source !== 'lecture-iframe') return;
+      if (d.type === 'edge-progress') {
+        const p = Math.max(0, Math.min(1, Number(d.progress) || 0));
+        setIsScrolling(true);
+        setSwipeY(p * SWIPE_THRESHOLD);
+      } else if (d.type === 'edge-reset') {
+        setIsScrolling(false);
+        setSwipeY(0);
+      } else if (d.type === 'intent-next') {
+        // Smooth programmatic advance: finish slide-out, then move to next
+        setIsScrolling(false); // enable CSS transitions for a smooth move
+        setIsAdvancing(true);  // hide the previous slide during the transition to avoid duplicate flash
+        setSwipeY(SWIPE_THRESHOLD + 120); // push the current slide past the barrier
+        window.setTimeout(() => {
+          // Reset the swipe offset first to avoid the new slide appearing offset
+          setSwipeY(0);
+          goNext();
+          // Allow a tick for the new slide to mount before we show the old one again
+          window.setTimeout(() => setIsAdvancing(false), 60);
+        }, 20); // keep in sync with transition duration below
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [goNext]);
 
-  /* ------------------------------------------------------------------ */
-  /* B.  live‑generation stream  (only once, only if new)               */
-  /* ------------------------------------------------------------------ */
+  // --- Data Fetching and SSE Logic (Unchanged) ---
+  useEffect(() => {
+    const profileId = getProfileId(userData)
+    if (!isNewlyCreated || !profileId) return;
+    controllerRef.current = new AbortController();
+    const { signal } = controllerRef.current;
+    const fetchStream = async () => {
+      try {
+        const res = await streamLecture(id, { isNew: true, profileId }, signal);
+        if (!res.ok) throw new Error(`Failed to start stream: ${res.statusText}`);
+        await readSSE(res, handleSSE, signal);
+      } catch (err: any) {
+        if (err.name !== "AbortError") console.error("Stream failed:", err);
+      }
+    };
+    fetchStream();
+    return () => controllerRef.current?.abort();
+  }, [id, isNewlyCreated, userData]);
 
-  function handleSSE(evt: any) {
+  useEffect(() => {
+    const profileId = getProfileId(userData);
+    if (isNewlyCreated || !profileId || (lectureSections[currentSection]?.html)) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    streamLecture(id, { isNew: false, page: currentSection, profileId }, signal)
+      .then(res => readSSE(res, handleSSE, signal))
+      .catch(err => {
+        if (err.name !== "AbortError") console.error("Fetch failed:", err)
+      });
+    return () => controller.abort();
+  }, [id, currentSection, isNewlyCreated, lectureSections, userData]);
+
+  function handleSSE(evt: StreamEvent) {
     if (evt.status === "outline_complete") {
-      setTotalSections(evt.outline.length);
+      setTotalSections(evt.length);
       setCourseTitle(evt.title);
-      setLectureStatus("Generating slides…");
     }
     if (evt.status === "code_complete" && evt.code) {
+      setTotalSections(evt.length);
       setLectureSections(prev => {
         const copy = [...prev];
-        copy[evt.index] = {
-          html: evt.code.html || "",
-          jsx: evt.code.jsx || null,
-        };
+        copy[evt.index] = { html: evt.code.html || "", jsx: evt.code.jsx || null };
         return copy;
       });
-      setAvailableSections(p =>
-        p.includes(evt.index) ? p : [...p, evt.index]
-      );
+      setAvailableSections(p => p.includes(evt.index) ? p : [...p, evt.index]);
     }
     if (evt.progress) setGenerationProgress(evt.progress);
     if (evt.status === "complete") setIsGeneratingContent(false);
   }
 
+  async function readSSE(res: Response, onMessage: (data: any) => void, signal?: AbortSignal) {
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let eventDataLines: string[] = [];
+    const dispatch = () => {
+      if (eventDataLines.length === 0) return;
+      const payload = eventDataLines.map(l => l.replace(/^data:\s?/, "")).join("");
+      eventDataLines = [];
+      const trimmed = payload.trim();
+      if (!trimmed || trimmed === "[DONE]") return;
+      try { onMessage(JSON.parse(trimmed)); } catch (e) { console.error("Bad JSON in SSE:", e, trimmed); }
+    };
+    while (true) {
+      if (signal?.aborted) break;
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newlineIndex: number;
+      while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+        let line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line === "") { dispatch(); continue; }
+        if (line.startsWith(":")) { continue; }
+        if (line.startsWith("data:")) { eventDataLines.push(line); continue; }
+      }
+    }
+    if (buffer.trim().length) {
+      const trailing = buffer.split(/\r?\n/).filter(l => l.startsWith("data:")).map(l => l.replace(/^data:\s?/, "")).join("").trim();
+      if (trailing && trailing !== "[DONE]") {
+        try { onMessage(JSON.parse(trailing)); } catch (e) { console.error("Bad JSON in SSE:", e, trailing); }
+      }
+    } 
+  }
+
+  // Helpers to detect scrollable elements and boundaries
+  function findScrollable(el: HTMLElement | null, container: HTMLElement | null): HTMLElement | null {
+    while (el && container && el !== container && el !== document.body) {
+      const style = getComputedStyle(el);
+      const canScrollY = /(auto|scroll)/.test(style.overflowY);
+      if (canScrollY && el.scrollHeight > el.clientHeight) return el;
+      el = el.parentElement as HTMLElement | null;
+    }
+    return container; // default to container when none found
+  }
+
+  function atScrollBoundary(el: HTMLElement | null, deltaY: number): boolean {
+    if (!el) return true;
+    if (deltaY > 0) {
+      return Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+    } else if (deltaY < 0) {
+      return el.scrollTop <= 0;
+    }
+    return false;
+  }
+
+
+  const goPrev = () => {
+    const prevSection = currentSection - 1;
+    if (prevSection < 0) return;
+    setShowQuestion(false);
+    setCurrentSection(prevSection);
+  };
+
+  const handleScrollEnd = useCallback(() => {
+    setIsScrolling(false);
+    if (swipeY > SWIPE_THRESHOLD) {
+      goNext();
+    }
+    setSwipeY(0);
+  }, [swipeY, goNext]);
+  
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (currentSection >= totalSections - 1 || !scrollAdvance) {
+      return; // allow normal interaction
+    }
+    console.log(swipeY)
+
+    const container = document.getElementById('slide-container');
+    const targetEl = e.target as HTMLElement | null;
+    const scrollable = findScrollable(targetEl, container);
+    const shouldCapture = atScrollBoundary(scrollable, e.deltaY);
+
+    if (!shouldCapture || e.deltaY < 0) {
+      // Let the inner element (iframe/JSX) scroll normally
+      return;
+    }
+
+    // We are at an edge; animate the slide and potentially advance
+    e.preventDefault();
+
+    if (scrollEndTimeout.current) {
+      clearTimeout(scrollEndTimeout.current);
+    }
+    if (!isScrolling) {
+      setIsScrolling(true);
+    }
+    
+    setSwipeY(prevY => Math.max(0, prevY + e.deltaY));
+    scrollEndTimeout.current = window.setTimeout(handleScrollEnd, 150);
+  }, [currentSection, totalSections, scrollAdvance, isScrolling, handleScrollEnd]);
 
   useEffect(() => {
-    if (!isNewlyCreated) return;
-    if (!userDataRaw || userLoading) return;
-    const profileId = getProfileId(userDataRaw);
-    if (!profileId) return;
-    // 1️⃣ keep one controller for the whole component‑lifetime
-    if (!controllerRef.current || controllerRef.current.signal.aborted) {
-      controllerRef.current = new AbortController();
+    const container = document.getElementById('slide-container');
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false });
     }
-    const { signal } = controllerRef.current;
-    const fetchStream = async () => {
-      try {
-        const res = await streamLecture(id, { isNew: true, profileId }, signal);
-        if (!res.ok) {
-          setTimeout(fetchStream, 500);
-          setLectureStatus("Waiting for generator to start…");
-          console.error("Failed to start lecture stream:", res.statusText);
-          return;
-        }
-        await readSSE(res, handleSSE, signal);
-      } catch (err: any) {
-        if (err.name !== "AbortError") console.error(err);
+    return () => {
+      if (container) {
+        container.removeEventListener('wheel', handleWheel);
       }
     };
-    fetchStream();
-    return () => controllerRef.current?.abort();
-  }, [id, isNewlyCreated, userDataRaw, userLoading]);   // 👈 stays stable, so this runs just once
-  
+  }, [handleWheel]);
 
-  /**
- * Stream an SSE response and call `onMessage(json)` for every complete event.
- */
-async function readSSE(
-  res: Response,
-  onMessage: (data: any) => void,
-  signal?: AbortSignal
-) {
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";          // accumulated text
+  const handleSlideUpdateFromChat = (update: { new_html?: string | null; new_jsx?: string | null }) => {
+    setLectureSections(prev => {
+      const newSections = [...prev];
+      const current = newSections[currentSection] || { html: '', jsx: null };
+      newSections[currentSection] = {
+        html: update.new_html ?? current.html,
+        jsx: update.new_jsx ?? current.jsx,
+      };
+      return newSections;
+    });
+  };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    // process every *complete* event (ends with \n\n)
-    let nl;
-    while ((nl = buffer.indexOf("\n\n")) !== -1) {
-      const rawEvent = buffer.slice(0, nl).trim(); // full event block
-      buffer = buffer.slice(nl + 2);               // remainder
-
-      // collect all ‘data:’ lines → single JSON string
-      const jsonString = rawEvent
-        .split("\n")               // split lines
-        .filter(l => l.startsWith("data:"))
-        .map(l => l.slice(5))      // drop leading "data:"
-        .join("");                 // spec: concatenate
-
-      if (!jsonString) continue;   // ignore empty events
-      try {
-        onMessage(JSON.parse(jsonString));
-      } catch (e) {
-        console.error("Bad JSON in SSE:", e, jsonString);
-      }
-    }
-  }
-}
-const nextSectionReady = availableSections.includes(currentSection + 1);
-
-const nextDisabled =
-  currentSection >= totalSections - 1      // at the end
-  || isGeneratingContent && !nextSectionReady; // still streaming
-
-
-  /* ------------------------------------------------------------------ */
-  /* C.  lazy page fetch  (fires whenever currentSection changes)       */
-  /* ------------------------------------------------------------------ */
-  useEffect(() => {
-    if (isNewlyCreated) return;
-    if (!userDataRaw || userLoading) return;
-    const profileId = getProfileId(userDataRaw);
-    if (!profileId) return;
-    if (lectureSections[currentSection] && lectureSections[currentSection].html) return;
-    const controller = new AbortController();
-    streamLecture(id, { isNew: false, page: currentSection, profileId }, controller.signal)
-      .then(res =>
-        readSSE(res, evt => {
-          console.log(evt);
-          if (evt.status === "code_complete" && evt.code) {
-            if (evt.index === 0) {
-              setTotalSections(evt.length);
-            }
-            setLectureSections(prev => {
-              const copy = [...prev];
-              copy[evt.index] = {
-                html: evt.code.html || "",
-                jsx: evt.code.jsx || null,
-              };
-              return copy;
-            });
-            setAvailableSections(p =>
-              p.includes(evt.index) ? p : [...p, evt.index]
-            );
-          }
-        })
-      )
-      .catch(console.error);
-    return () => controller.abort();
-  }, [id, currentSection, isNewlyCreated, lectureSections, userDataRaw, userLoading]);
-
-  /* ------------------------------------------------------------------ */
-  /* Navigation helpers (unchanged)                                     */
-  /* ------------------------------------------------------------------ */
-  const goNext = () => {
-    const currentSlide = lectureSections[currentSection]
-    if (currentSlide && currentSlide.jsx && !showQuestion) {
-      setShowQuestion(true)
-    } else {
-      setShowQuestion(false)
-      setCurrentSection(currentSection + 1)
-    }
-  }
-  const goPrev = () => {
-    setShowQuestion(false)
-    setCurrentSection(currentSection - 1)
-  }
-
-  useEffect(() => {
-    setShowQuestion(false)
-  }, [currentSection])
-  /* ------------------------------------------------------------------ */
-  /* UI (simplified to core parts)                                    */
-  /* ------------------------------------------------------------------ */
   return (
-    <div className="h-[100vh] flex flex-col">
-      {/* header */}
-      <header className="border-b p-5 py-7 flex items-center justify-between">
-        <Link href={`/lectures/${id}`} className="flex items-center text-sm">
-          <ChevronLeft className="h-5 w-5 mr-1" />
-          Back to {courseTitle}
+    <div className="h-screen flex flex-col bg-gray-50">
+      <header className="border-b bg-white p-6 flex items-center justify-between z-20 shrink-0">
+        <Link href={`/lectures/${id}`} className="flex items-center text-sm hover:underline ">
+          <ChevronLeft className="h-5 w-5 mr-1" onClick={goPrev} />
+          Back to {courseTitle || "Lecture"}
         </Link>
+        
       </header>
 
-      {/* progress bar */}
-      <div className="h-2 bg-gray-100 relative">
-        <div
-          className="h-full bg-primary"
-          style={{ width: `${((currentSection + 1) / Math.max(totalSections, 1)) * 100}%` }}
-        />
-        {isGeneratingContent && (
-          <div
-            className="absolute top-0 h-full bg-gray-300/50"
-            style={{ width: `${generationProgress}%` }}
-          />
-        )}
+      <div className="h-1.5 bg-gray-200 relative">
+        <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${((currentSection + 1) / Math.max(totalSections, 1)) * 100}%` }} />
+        {isGeneratingContent && <div className="absolute top-0 h-full bg-green-500/30" style={{ width: `${generationProgress}%` }} />}
       </div>
-
-      {/* slide area */}
-      {/* <Card
-                className="max-w-5xl min-h-[90%] w-full mx-auto rounded-3xl shadow-lg bg-white border-2 border-green-200/70 p-6 flex items-center justify-center 
-                          font-['Nunito','Poppins',sans-serif]"
-              > */}
-      <main className="flex-1 overflow-auto h-full px-4">
-          
-        {lectureSections[currentSection] && lectureSections[currentSection].html ? (
-          <div className="flex flex-col h-full">
-            {(lectureSections[currentSection].jsx && showQuestion)?
-           
-                <JsxRenderer
-                  jsx={lectureSections[currentSection].jsx}
-                  onContinue={goNext}
-                />
-              :
-              <div className="flex-grow relative">
-                <Iframe html={lectureSections[currentSection].html} />
-                <SlideUpdatingOverlay visible={slideUpdating} />
-              </div>}
-
-        
-          </div>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center">
-            <Loader2 className="h-10 w-10 animate-spin text-green-500" />
-            <p className="mt-4 text-sm text-gray-600">{lectureStatus}</p>
-          </div>
-        )}
-        
-      </main>
-{/* </Card> */}
-      {/* nav buttons and chatbot */}
       
-      {/* Navigation buttons only shown if not showing question */}
-      {!showQuestion && (
-        <>
-          <Button
-            onClick={goPrev}
-            disabled={currentSection === 0}
-            variant="outline"
-            className="fixed ml-4 bottom-4 z-50 text-gray-700"
-          >
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">
-              Previous
-            </span>
-          </Button>
+      <main 
+        id="slide-container" 
+        className="flex-1 relative flex flex-col items-center justify-center font-sans overflow-hidden p-4 md:p-8"
+      >
+        <AnimatePresence>
+          {isCompleted && <CompletionScreen title={courseTitle} lectureId={id} />}
+        </AnimatePresence>
+        {currentSection === 0 && (
+            <div className="absolute bottom-10 text-primary animate-bounce flex flex-col items-center z-20"
+                 style={{ transition: 'opacity 0.3s' }}>
+                <span className="text-xl">Scroll Down</span>
+                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+            </div>
+        )}
+        <div className="w-full h-full max-w-8xl relative">
+          {/* We render a few slides to create the stack effect */}
+          {[currentSection - 1, currentSection, currentSection + 1, currentSection + 2].map(index => {
+            if (index < 0 || (index >= totalSections && totalSections > 0)) return null;
 
-          {currentSection >= totalSections - 1 && totalSections !== 0 ? (
-            <Button
-              onClick={() => redirect('/lectures')}
-              className="bg-green-500 text-white hover:bg-green-500 absolute right-4 bottom-4"
-            >
-              <span className="hidden sm:inline">
-                Finish
-              </span> <Check className="h-4 w-4 ml-2" />
-            </Button>
-          ) : (
-            <Button
-              onClick={goNext}
-              className="bg-primary text-white absolute right-4 bottom-4"
-              disabled={nextDisabled}
-            >
-              <span className="hidden sm:inline">
-                Next
-              </span>  <ChevronLeft className="h-4 w-4 ml-2 rotate-180" />
-            </Button>
-          )}
-        </>
-      )}
+            const section = lectureSections[index];
+            const distance = index - currentSection;
 
-      {/* B. The BuddyChatbot is added here */}
+            // During an animated advance, hide the previous slide so it doesn't reappear at position 0
+            if (isAdvancing && distance < 0) {
+              return null;
+            }
+
+            if (distance < -1 || distance > 2) return null;
+
+            const transitionStyle = isScrolling ? 'none' : 'all 0.45s cubic-bezier(0.22, 1, 0.36, 1)';
+            let style: React.CSSProperties = {};
+            const progress = Math.min(1, Math.max(0, swipeY / SWIPE_THRESHOLD));
+            if (distance === 0) {
+                const y = (isScrolling || isAdvancing) ? Math.max(0, swipeY) : 0;
+                const rotation = -y / 40;
+                style = {
+                  transform: `translateY(-${y}px) rotate(${rotation}deg)`,
+                  zIndex: 10,
+                  opacity: 1 - progress,
+                  transition: transitionStyle,
+                  willChange: 'transform, opacity',
+                  transformOrigin: '50% 100%'
+                };
+            } else if (distance === 1) {
+               
+                const scale = 0.95 + progress * 0.05;
+                const translateY = (1 - progress) * 2.5;
+                style = {
+                  transform: `translateY(${translateY}rem) scale(${scale})`,
+                  zIndex: 9,
+                  transition: transitionStyle,
+                  opacity: 0.7 + progress * 0.3,
+                  willChange: 'transform, opacity',
+                  transformOrigin: '50% 100%'
+                };
+            } else if (distance > 1){
+                style = {
+                  transform: `translateY(5rem) scale(0.9)`,
+                  opacity: 0,
+                  zIndex: 8,
+                  transition: transitionStyle,
+                  willChange: 'transform, opacity',
+                  transformOrigin: '50% 100%'
+                };
+            }
+
+            if (distance < 0) {
+                style = {
+                  transform: 'translateY(-100vh)',
+                  opacity: 0,
+                  zIndex: 11,
+                  transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  willChange: 'transform, opacity',
+                };
+            }
+
+            return (
+              <div
+                key={`${index}-${index === currentSection ? 'current' : 'stack'}`}
+                style={style}
+                className="absolute w-full h-full p-1"
+              >
+                <div className="h-full w-full bg-white rounded-xl shadow-2xl border flex flex-col overflow-hidden">
+                    {section ? (
+                        <div className="w-full h-full">
+                            {(section.jsx && showQuestion && distance === 0) ? (
+                              <motion.div className="w-full h-full bg-slate-50" initial={{opacity:0,y:20}} animate={{opacity:1, y:0}}>
+                                <JsxRenderer jsx={section.jsx} onContinue={goNext} />
+                              </motion.div>
+                            ) : (
+                              <motion.div className="w-full h-full" initial={{opacity:0,y:20}} animate={{opacity: 1, y:0}}>
+                                <Iframe html={section.html} />
+                              </motion.div>
+                                
+                            )}
+                        </div>
+                    ) : (
+                        distance >= 0 && <div className="h-full flex items-center justify-center bg-gray-100 rounded-xl">
+                            <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                        </div>
+                    )}
+                     <SlideUpdatingOverlay visible={slideUpdating && distance === 0} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </main>
+
       <BuddyChatbot
         currentSection={currentSection}
         onSlideUpdate={handleSlideUpdateFromChat}
