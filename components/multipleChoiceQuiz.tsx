@@ -124,7 +124,7 @@ export default function MultipleChoiceQuiz({ children, answer, distractors = '',
   return (
     <>
       <style>{keyframeStyles}</style>
-      <article ref={containerRef} className="flex flex-col justify-center items-center w-full min-h-screen bg-white p-4 sm:p-6 md:p-8">
+      <article ref={containerRef} className="flex flex-col items-center w-full bg-white px-4 sm:px-6 md:px-8 sm:pt-10 ">
         <div className="w-full max-w-2xl mx-auto">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-8 sm:mb-12 text-center break-words">
             {children}
