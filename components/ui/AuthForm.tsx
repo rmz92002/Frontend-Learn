@@ -57,23 +57,33 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
         body: JSON.stringify(body),
       })
 
-      if (!res.ok) {
-        if (res.status === 401) {
-          const data = await res.json()
-          if (data.detail === "Email not confirmed") {
-            setShowConfirmEmail(true)
-          }
+      // Try to read JSON once; some endpoints may return empty bodies
+      let data: any = null
+      try {
+        data = await res.json()
+      } catch {
+        data = null
+      }
+
+      if (res.ok) {
+        // On successful login, redirect to the main page
+        if (!isSignup) {
+          router.replace("/")
+          return
         }
-        // Show toast / error state
+        // On successful signup, show success/confirmation UI
+        setRegistrationSuccess(true)
+        setShowConfirmEmail(true)
         return
       }
 
-      if (isSignup) {
-        setRegistrationSuccess(true)
-      } else {
-        console.log("Redirecting to /")
-        router.replace("/")
+      // Handle common error case: email not confirmed
+      if (res.status === 401 && data?.detail === "Email not confirmed") {
+        setShowConfirmEmail(true)
+        return
       }
+
+      // TODO: Surface a toast or inline error here if desired
     } catch (error) {
       console.error(`${isSignup ? "Signup" : "Login"} failed:`, error)
     } finally {
@@ -131,11 +141,6 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
     )
   }
 
-  if (showConfirmEmail) {
-    router.push(`/confirm-email?email=${encodeURIComponent(email)}`)
-    return null
-  }
-
   return (
     <div className="w-full max-w-md">
       <div className="text-center mb-8">
@@ -147,6 +152,14 @@ export default function AuthForm({ isSignup }: AuthFormProps) {
             ? "Join our community to start your learning journey."
             : "Sign in to continue where you left off."}
         </p>
+        {showConfirmEmail && (
+          <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+            Please confirm your email to continue. If you didn't receive the email, you can
+            <button type="button" onClick={handleResendConfirmation} className="ml-1 underline">
+              resend the confirmation
+            </button>.
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleAuth} className="space-y-4">
