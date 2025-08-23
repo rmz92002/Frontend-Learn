@@ -128,9 +128,9 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
 
   /* ────────────────────────── UI ─────────────────────────────── */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-emerald-50 to-white">
-    <div className="container px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 mx-auto max-w-4xl">
-      <div className="flex flex-col items-center justify-center">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-white via-emerald-50 to-white">
+    <div className="container px-4 sm:px-6 lg:px-8 py-12 sm:py-16 mx-auto max-w-4xl flex-1 flex items-center">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] min-h-[70dvh]">
         <h1 className="text-4xl sm:text-5xl font-bold text-center mb-8 sm:mb-12 text-primary">
           What do you want to learn?
         </h1>
@@ -260,7 +260,7 @@ const userData = (userDataRaw && typeof userDataRaw === 'object' && 'profile' in
         {/* Community Examples (Popular Lectures) */}
       </div>
     </div>
-    <div className="w-full max-w-6xl mx-auto mb-16 px-4 sm:px-6 lg:px-8">
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-auto pb-10">
       <h2 className="text-2xl sm:text-3xl mb-6 font-bold text-gray-800">From the Community</h2>
       <PopularLectures userData={userData} />
     </div>

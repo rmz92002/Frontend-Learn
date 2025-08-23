@@ -45,28 +45,16 @@ const AnimatedSlide = ({ children, onVisible }: { children: React.ReactNode; onV
 
 // --- Completion Screen Component ---
 const CompletionScreen = ({ title, lectureId }: { title: string, lectureId: string }) => (
-  <motion.div
-    className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.5 }}
-  >
-    <motion.div
-      className="flex flex-col items-center gap-6 text-center p-8"
-      initial={{ scale: 0.9, y: 20 }}
-      animate={{ scale: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
-    >
-      <CheckCircle className="w-24 h-24 text-green-500" />
-      <h1 className="text-4xl font-bold text-gray-800">Well done!</h1>
-      <p className="text-lg text-gray-600 max-w-md">
-        You have successfully completed the lecture: <span className="font-semibold">{title}</span>
-      </p>
-      <Link href={`/lectures/${lectureId}`} className="mt-4 inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
-        Back to Lecture Overview
-      </Link>
-    </motion.div>
-  </motion.div>
+  <div className="h-full w-full flex flex-col items-center justify-center bg-white rounded-xl shadow-2xl border p-8">
+    <CheckCircle className="w-24 h-24 text-green-500" />
+    <h1 className="text-4xl font-bold text-gray-800 mt-6">Well done!</h1>
+    <p className="text-lg text-gray-600 max-w-md text-center mt-4">
+      You have successfully completed the lecture: <span className="font-semibold">{title}</span>
+    </p>
+    <Link href={`/lectures/${lectureId}`} className="mt-8 inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+      Back to Lecture Overview
+    </Link>
+  </div>
 );
 
 // --- Slide Updating Overlay Component ---
@@ -123,27 +111,30 @@ export default function LearningView() {
   const [interactionLocked, setInteractionLocked] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
-  const controllerRef = useRef<AbortController>()
+  const controllerRef = useRef<AbortController | null>(null)
 
   const getProfileId = (data: unknown): number | undefined => (data as any)?.profile?.id;
 
   // --- Updated navigation to manage scroll lock ---
   const goNext = useCallback(() => {
-    // Called from JsxRenderer upon completion. Unlock before moving to the next slide.
     setInteractionLocked(false);
-
     const nextSection = currentSection + 1;
-    if (nextSection >= totalSections) {
-      if (totalSections > 0) setIsCompleted(true);
+
+    if (nextSection >= totalSections && totalSections > 0) {
+      setIsCompleted(true);
+      // Wait for the completion slide to be rendered before scrolling
+      setTimeout(() => {
+        document.getElementById(`slide-${totalSections}`)?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
       return;
     }
+
     if (isGeneratingContent && !availableSections.includes(nextSection)) {
       toast({ title: 'Hold on!', description: 'The next slide is still being generated.' });
       return;
     }
 
     document.getElementById(`slide-${nextSection}`)?.scrollIntoView({ behavior: 'smooth' });
-
   }, [currentSection, totalSections, isGeneratingContent, availableSections, toast]);
 
   const goPrev = useCallback(() => {
@@ -182,6 +173,15 @@ export default function LearningView() {
     };
 
   }, [interactionLocked, toast]);
+
+  useEffect(() => {
+    const isLastSection = currentSection === totalSections - 1;
+    const isNotInteractive = !lectureSections[currentSection]?.jsx;
+
+    if (isLastSection && isNotInteractive && totalSections > 0) {
+      setIsCompleted(true);
+    }
+  }, [currentSection, totalSections, lectureSections]);
 
   // --- Data Fetching and SSE Logic (Unchanged) ---
   useEffect(() => {
@@ -291,7 +291,10 @@ export default function LearningView() {
       </header>
       
       <div className="h-1.5 bg-gray-200 relative">
-        <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${((currentSection + 1) / Math.max(totalSections, 1)) * 100}%` }} />
+        <div 
+          className="h-full bg-green-500 transition-all duration-500" 
+          style={{ width: `${((currentSection + 1) / (totalSections + (isCompleted ? 1 : 0))) * 100}%` }} 
+        />
         {isGeneratingContent && <div className="absolute top-0 h-full bg-green-500/30" style={{ width: `${generationProgress}%` }} />}
       </div>
       
@@ -300,9 +303,7 @@ export default function LearningView() {
         ref={mainContainerRef} // Add ref to the main container
         className="flex-1 w-full bg-gray-200 overflow-y-auto snap-y snap-mandatory"
       >
-        <AnimatePresence>
-          {isCompleted && <CompletionScreen title={courseTitle} lectureId={id} />}
-        </AnimatePresence>
+        
         
         {currentSection === 0 && !isCompleted && (
           <div className="fixed bottom-10 left-1/2 -translate-x-1/2 text-primary animate-bounce flex flex-col items-center z-20 pointer-events-none">
@@ -367,6 +368,7 @@ export default function LearningView() {
             </div>
             ]
           }
+
           return   (
             <div id={`slide-${index}`} key={index}>
               <AnimatedSlide onVisible={() => {
@@ -394,7 +396,16 @@ export default function LearningView() {
               </AnimatedSlide>
             </div>
           );
+          
         })}
+        
+        {isCompleted && (
+          <div id={`slide-${totalSections}`}>
+            <AnimatedSlide onVisible={() => setCurrentSection(totalSections)}>
+              <CompletionScreen title={courseTitle} lectureId={id} />
+            </AnimatedSlide>
+          </div>
+        )}
       </main>
 
       <BuddyChatbot
