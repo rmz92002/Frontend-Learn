@@ -61,6 +61,10 @@ export async function middleware(req: NextRequest) {
     return ensureClientId(NextResponse.redirect(new URL("/", req.url)), req);
   }
 
+  if (!jwtPayload && !isAuthPage && !pathname.startsWith("/coming-soon")) {
+    return NextResponse.redirect(new URL("/login", req.url))
+  }
+
 
   /* ---------- all good, let the request pass through -------------- */
   return ensureClientId(NextResponse.next(), req)

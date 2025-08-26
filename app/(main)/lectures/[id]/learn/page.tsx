@@ -35,7 +35,7 @@ const AnimatedSlide = ({ children, onVisible }: { children: React.ReactNode; onV
   }, [isInView, onVisible]);
 
   return (
-    <div ref={ref} className="h-screen w-full flex items-center justify-center snap-start p-4 md:p-8">
+    <div ref={ref} className="min-h-[93dvh] h-[93vh] w-full flex items-center justify-center snap-start p-4 md:p-8">
       <motion.div className="h-full w-full max-w-8xl">
         {children}
       </motion.div>
@@ -283,7 +283,7 @@ export default function LearningView() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      <header className="border-b bg-white p-6 flex items-center justify-between z-20 shrink-0">
+      <header className="border-b p-6 flex bg-white items-center justify-between z-20 shrink-0">
         <Link href={`/lectures/${id}`} className="flex items-center text-sm hover:underline ">
           <ChevronLeft className="h-5 w-5 mr-1" onClick={goPrev} />
           Back to {courseTitle || "Lecture"}
@@ -301,7 +301,7 @@ export default function LearningView() {
       <main
         id="slide-container"
         ref={mainContainerRef} // Add ref to the main container
-        className="flex-1 w-full bg-gray-200 overflow-y-auto snap-y snap-mandatory"
+        className="flex-1 w-full bg-gray-200 overflow-y-auto snap-y snap-mandatory h-96"
       >
         
         
@@ -381,9 +381,8 @@ export default function LearningView() {
                 <div className="relative h-full w-full bg-white rounded-xl shadow-2xl border flex flex-col overflow-hidden">
                   {section ? (
                     <div className="flex w-full h-full">
-                        <div className="w-full h-full">
                           <Iframe html={section.html} />
-                        </div>
+                      
                    
                     </div>
                   ) : (
