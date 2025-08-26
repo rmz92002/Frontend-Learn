@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
+import { createBetaSignup } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -31,10 +32,15 @@ function WaitlistForm() {
     e.preventDefault()
     if (!email) return
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsSubmitted(true)
-    setIsLoading(false)
+    try {
+      await createBetaSignup({ email, source: "coming-soon-page" })
+      setIsSubmitted(true)
+    } catch (error) {
+      console.error("Failed to sign up:", error)
+      // Optionally: display an error message to the user
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isSubmitted) {

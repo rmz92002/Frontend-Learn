@@ -102,6 +102,50 @@ export async function streamLecture(
 }
 
 
+
+// Beta signup (public, no auth required)
+export interface BetaSignupPayload {
+  email: string;
+  /**
+   * Optional source string to track where the signup came from
+   * (e.g., "landing-page", "waitlist-modal", etc.)
+   */
+  source?: string | null;
+}
+
+export async function createBetaSignup(
+  signup: BetaSignupPayload,
+  signal?: AbortSignal
+): Promise<{ message: string; email?: string }> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/beta-signup/`,
+    {
+      method: "POST",
+      credentials: "include", // harmless even if endpoint is public
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(signup),
+      signal,
+    }
+  );
+
+  if (!response.ok) {
+    // Surface more detail to help with debugging
+    let detail = "";
+    try {
+      detail = await response.text();
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      `Failed to submit beta signup: ${response.status}${detail ? " - " + detail : ""}`
+    );
+  }
+
+  // Backend returns { message, email? }
+  return response.json();
+}
   // get settings 
 
   export async function getSettingsUser(signal?: AbortSignal) {
